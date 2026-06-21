@@ -1,15 +1,16 @@
 <template>
-  <div class="welcome-container">
-    <h1>🚀 UCAB-Services</h1>
-    <p>La estructura base está lista. Es hora de programar con el equipo.</p>
-  </div>
+  <router-view />
 </template>
 
-<style scoped>
-.welcome-container {
-  text-align: center;
+<style>
+/* Reseteo básico de márgenes para toda la app */
+body, html {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
   font-family: Arial, sans-serif;
-  margin-top: 50px;
-  color: #2c3e50;
+}
+*, *::before, *::after {
+  box-sizing: inherit;
 }
 </style>

@@ -4,6 +4,7 @@ import vue from '@vitejs/plugin-vue'
 export default defineConfig({
     plugins: [vue()],
     server: {
-        port: 3000 // Se ejecutará en el puerto 3000 para no chocar con el backend
+        host: '127.0.0.1',
+        port: 5173 // Usar puerto 5173 por defecto de Vite para evitar bloqueos en 3000
     }
 })
