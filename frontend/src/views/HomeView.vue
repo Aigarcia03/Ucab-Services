@@ -1,5 +1,8 @@
 <script setup>
 import { ref } from 'vue'
+import { useRouter } from 'vue-router'
+
+const router = useRouter() // TEMPORAL: uso de router para poner un acceso directo a MainView mientras desarrollas
 
 // Variables para capturar los datos de los formularios
 const loginData = ref({ usuario: '', contrasena: '' })
@@ -16,6 +19,11 @@ const handleRegister = () => {
   console.log('Intentando registro con:', registerData.value)
   // Aquí luego agregarás la lógica para ir al backend
 }
+
+const goToMain = () => {
+  router.push({ name: 'main' })
+}
+// TEMPORAL: función auxiliar para ir a MainView mientras no hay navegación final definida.
 </script>
 
 <template>
@@ -35,6 +43,7 @@ const handleRegister = () => {
           <a href="#" class="forgot-link">¿Olvidó su contraseña?</a>
         </div>
         <button class="btn-blue" @click="handleLogin">Ingresar</button>
+        <button class="btn-secondary" @click="goToMain">Ver MainView</button> <!-- TEMPORAL: botón de acceso directo para revisar MainView. Eliminar después. -->
       </div>
     </header>
 
@@ -177,6 +186,21 @@ const handleRegister = () => {
 
 .btn-blue:hover {
   background-color: #4aa3d6;
+}
+
+.btn-secondary {
+  background-color: white;
+  color: #0b7c3e;
+  border: 2px solid #0b7c3e;
+  border-radius: 20px;
+  padding: 8px 25px;
+  cursor: pointer;
+  font-weight: bold;
+  margin-top: 20px;
+}
+
+.btn-secondary:hover {
+  background-color: #f0f7f0;
 }
 
 /* CONTENIDO PRINCIPAL */
