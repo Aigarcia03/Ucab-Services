@@ -1,29 +1,128 @@
 <script setup>
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { setAuthUser } from '../services/authService'
 
-const router = useRouter() // TEMPORAL: uso de router para poner un acceso directo a MainView mientras desarrollas
+const router = useRouter()
 
 // Variables para capturar los datos de los formularios
 const loginData = ref({ usuario: '', contrasena: '' })
 const registerData = ref({
-  nombres: '', apellidos: '', correo: '', contrasena: '', genero: '', fechaNacimiento: ''
+  ci: '',
+  primerNombre: '',
+  primerApellido: '',
+  sexo: 'F',
+  correo: '',
+  contrasena: '',
+  direccion: '',
+  fechaNacimiento: '',
+  telefono: '',
+  categoria: 'frecuente'
 })
+const loginError = ref('')
+const registerError = ref('')
+const registerSuccess = ref('')
 
-const handleLogin = () => {
-  console.log('Intentando login con:', loginData.value)
-  // Aquí luego agregarás la lógica para ir al backend
+const handleLogin = async () => {
+  loginError.value = ''
+
+  if (!loginData.value.usuario || !loginData.value.contrasena) {
+    loginError.value = 'Por favor ingresa usuario y contraseña.'
+    return
+  }
+
+  try {
+    const response = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(loginData.value)
+    })
+
+    if (!response.ok) {
+      const errorBody = await response.text()
+      try {
+        const parsedError = JSON.parse(errorBody)
+        loginError.value = parsedError.error || 'Credenciales inválidas.'
+      } catch {
+        loginError.value = errorBody || 'Credenciales inválidas.'
+      }
+      return
+    }
+
+    const user = await response.json()
+    setAuthUser(user)
+    router.push({ name: 'main' })
+  } catch (error) {
+    console.error('Error al autenticar:', error)
+    loginError.value = 'No se pudo conectar con el servidor. Intenta de nuevo.'
+  }
 }
 
-const handleRegister = () => {
-  console.log('Intentando registro con:', registerData.value)
-  // Aquí luego agregarás la lógica para ir al backend
+const handleRegister = async () => {
+  registerError.value = ''
+  registerSuccess.value = ''
+
+  const requiredFields = [
+    { value: registerData.value.ci, label: 'CI' },
+    { value: registerData.value.primerNombre, label: 'Primer nombre' },
+    { value: registerData.value.primerApellido, label: 'Primer apellido' },
+    { value: registerData.value.correo, label: 'Correo institucional' },
+    { value: registerData.value.contrasena, label: 'Contraseña' },
+    { value: registerData.value.direccion, label: 'Dirección' },
+    { value: registerData.value.fechaNacimiento, label: 'Fecha de nacimiento' },
+    { value: registerData.value.telefono, label: 'Teléfono' }
+  ]
+
+  const missing = requiredFields.filter(field => !field.value || String(field.value).trim() === '')
+  if (missing.length > 0) {
+    registerError.value = `Faltan campos obligatorios: ${missing.map(f => f.label).join(', ')}`
+    return
+  }
+
+  try {
+    const payload = {
+      CI: parseInt(registerData.value.ci, 10),
+      PrimerNombre: registerData.value.primerNombre,
+      PrimerApellido: registerData.value.primerApellido,
+      Sexo: registerData.value.sexo,
+      CorreoInstitucional: registerData.value.correo,
+      DireccionHabitacion: registerData.value.direccion,
+      FechaNacimiento: registerData.value.fechaNacimiento,
+      Telefono: registerData.value.telefono,
+      Categoria: registerData.value.categoria,
+      contrasena: registerData.value.contrasena
+    }
+
+    const response = await fetch('/api/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    })
+
+    if (!response.ok) {
+      const errorBody = await response.text()
+      try {
+        const parsedError = JSON.parse(errorBody)
+        registerError.value = parsedError.error || 'No se pudo registrar el usuario.'
+      } catch {
+        registerError.value = errorBody || 'No se pudo registrar el usuario.'
+      }
+      return
+    }
+
+    const user = await response.json()
+    setAuthUser(user)
+    registerSuccess.value = 'Registro exitoso. Redirigiendo...'
+    setTimeout(() => router.push({ name: 'main' }), 700)
+  } catch (error) {
+    console.error('Error al registrar:', error)
+    registerError.value = 'No se pudo conectar con el servidor. Intenta de nuevo.'
+  }
 }
 
 const goToMain = () => {
   router.push({ name: 'main' })
 }
-// TEMPORAL: función auxiliar para ir a MainView mientras no hay navegación final definida.
 </script>
 
 <template>
@@ -42,9 +141,9 @@ const goToMain = () => {
           <input type="password" v-model="loginData.contrasena" />
           <a href="#" class="forgot-link">¿Olvidó su contraseña?</a>
         </div>
-        <button class="btn-blue" @click="handleLogin">Ingresar</button>
-        <button class="btn-secondary" @click="goToMain">Ver MainView</button> <!-- TEMPORAL: botón de acceso directo para revisar MainView. Eliminar después. -->
+        <button class="btn-blue" @click="handleLogin" type="button">Ingresar</button>
       </div>
+      <div v-if="loginError" class="login-error">{{ loginError }}</div>
     </header>
 
     <main class="main-content">
@@ -59,44 +158,87 @@ const goToMain = () => {
           <h2>Únete ya a la familia UCAB</h2>
           
           <form @submit.prevent="handleRegister" class="form-grid">
-            <div class="form-group">
-              <label>Nombres:</label>
-              <input type="text" v-model="registerData.nombres" />
-            </div>
-            
-            <div class="form-group">
-              <label>Apellidos:</label>
-              <input type="text" v-model="registerData.apellidos" />
-            </div>
-            
-            <div class="form-group">
-              <label>Correo electrónico:</label>
-              <input type="email" v-model="registerData.correo" />
-            </div>
-            
-            <div class="form-group">
-              <label>Contraseña:</label>
-              <input type="password" v-model="registerData.contrasena" />
-            </div>
-            
             <div class="form-row">
-              <div class="form-group gender-group">
-                <label>Género:</label>
-                <div class="radio-options">
-                  <label><input type="radio" value="Mujer" v-model="registerData.genero"> Mujer.</label>
-                  <label><input type="radio" value="Hombre" v-model="registerData.genero"> Hombre.</label>
-                  <label><input type="radio" value="Otro" v-model="registerData.genero"> Otro.</label>
-                </div>
+              <div class="form-group">
+                <label>CI:</label>
+                <input
+                  type="text"
+                  v-model="registerData.ci"
+                  inputmode="numeric"
+                  pattern="[0-9]*"
+                  maxlength="12"
+                />
               </div>
-              
-              <div class="form-group date-group">
+              <div class="form-group">
+                <label>Teléfono:</label>
+                <input
+                  type="text"
+                  v-model="registerData.telefono"
+                  inputmode="numeric"
+                  pattern="[0-9+\s-]*"
+                />
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label>Primer nombre:</label>
+                <input type="text" v-model="registerData.primerNombre" />
+              </div>
+              <div class="form-group">
+                <label>Primer apellido:</label>
+                <input type="text" v-model="registerData.primerApellido" />
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label>Correo institucional:</label>
+                <input type="email" v-model="registerData.correo" />
+              </div>
+              <div class="form-group">
+                <label>Dirección:</label>
+                <input type="text" v-model="registerData.direccion" />
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label>Contraseña:</label>
+                <input type="password" v-model="registerData.contrasena" />
+              </div>
+              <div class="form-group">
                 <label>Fecha de nacimiento:</label>
                 <input type="date" v-model="registerData.fechaNacimiento" />
               </div>
             </div>
-            
-            <div class="submit-row">
-              <button type="submit" class="btn-blue register-btn">Registrarme</button>
+
+            <div class="form-row">
+              <div class="form-group gender-group">
+                <label>Sexo:</label>
+                <div class="radio-options">
+                  <label><input type="radio" value="F" v-model="registerData.sexo"> F</label>
+                  <label><input type="radio" value="M" v-model="registerData.sexo"> M</label>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label>Categoría:</label>
+                <select v-model="registerData.categoria">
+                  <option value="frecuente">Frecuente</option>
+                  <option value="preferencial">Preferencial</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <button type="submit" class="btn-blue register-btn">Registrarme</button>
+              </div>
+              <div class="form-group">
+                <p class="register-status" v-if="registerError">{{ registerError }}</p>
+                <p class="register-success" v-if="registerSuccess">{{ registerSuccess }}</p>
+              </div>
             </div>
           </form>
         </div>
@@ -224,12 +366,11 @@ const goToMain = () => {
 
 /* TARJETA DE REGISTRO */
 .register-card {
-  background-color: rgba(226, 214, 150, 0.85); /* Amarillo/Beige translúcido */
-  padding: 30px 40px;
-  border-radius: 15px;
-  width: 450px;
-  box-shadow: 0 10px 20px rgba(0,0,0,0.2);
-  color: white;
+  background-color: rgba(226, 214, 150, 0.92); /* Amarillo/Beige translúcido */
+  padding: 24px 28px;
+  border-radius: 16px;
+  width: 420px;
+  box-shadow: 0 10px 18px rgba(0,0,0,0.18);
 }
 
 .subtitle {
@@ -249,7 +390,8 @@ const goToMain = () => {
 .form-group {
   display: flex;
   flex-direction: column;
-  margin-bottom: 15px;
+  margin-bottom: 12px;
+  width: 100%;
 }
 
 .form-group label {
@@ -260,18 +402,28 @@ const goToMain = () => {
 
 .form-group input[type="text"],
 .form-group input[type="email"],
-.form-group input[type="password"] {
-  padding: 10px;
-  border-radius: 20px;
+.form-group input[type="password"],
+.form-group input[type="date"],
+.form-group select {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 14px;
   border: none;
-  background-color: #e8e8e8;
+  background-color: #f3f3f3;
   outline: none;
+  box-sizing: border-box;
 }
 
 .form-row {
   display: flex;
-  justify-content: space-between;
-  margin-bottom: 15px;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.form-row .form-group {
+  flex: 1;
+  min-width: 150px;
 }
 
 .radio-options {

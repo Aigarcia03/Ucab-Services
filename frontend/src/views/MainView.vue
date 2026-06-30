@@ -1,13 +1,13 @@
-<template>
+﻿<template>
   <div class="dashboard-container">
     <header class="top-header">
       <div class="logo">UCAB-Services</div>
       <div class="header-right">
-        <input 
-          type="text" 
-          v-model="searchQuery" 
-          placeholder="Ingresa tu búsqueda aquí..." 
-          class="search-bar" 
+        <input
+          type="text"
+          v-model="searchQuery"
+          placeholder="Ingresa tu búsqueda aquí..."
+          class="search-bar"
           @keyup.enter="handleSearch"
         />
         <div class="header-links">
@@ -16,12 +16,13 @@
           <a href="#" @click.prevent="currentView = 'solicitudes'">Solicitudes</a>
           <span class="divider">|</span>
           <a href="#" @click.prevent="goToComunidades">Comunidades</a>
+          <span class="divider">|</span>
+          <a href="#" @click.prevent="logout">Salir</a>
         </div>
       </div>
     </header>
 
     <div class="main-layout">
-      
       <aside class="left-sidebar">
         <div class="profile-card">
           <div class="profile-avatar-wrapper">
@@ -32,6 +33,7 @@
             <svg class="icon-small" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
             Editar información
           </button>
+          <button class="btn-logout" @click="logout">Cerrar sesión</button>
         </div>
 
         <nav class="sidebar-nav">
@@ -61,11 +63,33 @@
               <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
               <span>Feed</span>
             </li>
+            <li class="nav-item" :class="{ active: currentView === 'db' }" @click="currentView = 'db'">
+              <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+              <span>Base de datos</span>
+            </li>
           </ul>
         </nav>
       </aside>
 
-      <template v-if="currentView === 'feed'">
+      <template v-if="currentView === 'perfil'">
+        <main class="dynamic-full-content">
+          <div class="view-card-container profile-main-view">
+            <h2>Perfil Principal</h2>
+            <p class="profile-intro">Bienvenida, {{ userProfile.firstName }}. Aquí está tu panel principal.</p>
+            <div class="profile-summary">
+              <div class="profile-summary-row"><strong>Nombre:</strong> {{ userProfile.firstName }} {{ userProfile.lastName }}</div>
+              <div class="profile-summary-row"><strong>Rol:</strong> Estudiante UCAB</div>
+              <div class="profile-summary-row"><strong>Correo:</strong> {{ userProfile.email }}</div>
+              <div class="profile-summary-row"><strong>Categoría:</strong> {{ userProfile.category }}</div>
+            </div>
+            <div class="profile-actions">
+              <button class="btn-action" @click="currentView = 'feed'">Ver novedades</button>
+              <button class="btn-action" @click="currentView = 'solicitudes'">Ver solicitudes</button>
+            </div>
+          </div>
+        </main>
+      </template>
+      <template v-else-if="currentView === 'feed'">
         <main class="feed-content">
           <article v-for="post in feedPosts" :key="post.id" class="post-card">
             <header class="post-header">
@@ -133,10 +157,53 @@
           <div class="view-card-container">
             <h2>Mis solicitudes (temporal)</h2>
             <p>Listado de solicitudes en desarrollo. Este es un acceso provisional al módulo de pagos.</p>
-            <!-- TEMPORAL: botón provisional para navegar a Payments.vue con una transacción de ejemplo -->
             <div style="margin-top: 15px; display:flex; gap:12px;">
               <button class="btn-action" @click="currentView = 'feed'">Volver al Feed</button>
               <button class="btn-guardar-reserva" @click="irAPagoProvisional" style="background-color:#2cb5e8;">Ir a Pago (provisional)</button>
+            </div>
+          </div>
+        </main>
+      </template>
+
+      <template v-else-if="currentView === 'db'">
+        <main class="dynamic-full-content">
+          <div class="view-card-container db-browser">
+            <h2>Explorador de Base de Datos</h2>
+            <div class="db-layout">
+              <div class="tables-list">
+                <h3>Tablas</h3>
+                <ul>
+                  <li v-for="t in tables" :key="t.name">
+                    <a href="#" @click.prevent="selectTable(t.name)">{{ t.name }}</a>
+                  </li>
+                </ul>
+              </div>
+
+              <div class="table-details" v-if="selectedTable">
+                <h3>Tabla: {{ selectedTable }}</h3>
+                <div class="columns">
+                  <h4>Columnas</h4>
+                  <ul>
+                    <li v-for="c in columns" :key="c.name">{{ c.name }} ({{ c.typeName }})</li>
+                  </ul>
+                </div>
+
+                <div class="rows">
+                  <h4>Filas (máx {{ rowLimit }})</h4>
+                  <table>
+                    <thead>
+                      <tr>
+                        <th v-for="col in columns" :key="col.name">{{ col.name }}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr v-for="(r, idx) in rows" :key="idx">
+                        <td v-for="col in columns" :key="col.name">{{ r[col.name] }}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
             </div>
           </div>
         </main>
@@ -151,23 +218,30 @@
           </div>
         </main>
       </template>
-
     </div>
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted } from 'vue';
+import { useRouter } from 'vue-router';
+import { getAuthUser, clearAuthUser } from '../services/authService';
 import Reservation from './Reservation.vue';
 import Payments from './Payments.vue';
 
 const currentView = ref('feed');
 const searchQuery = ref('');
 const transaccionActiva = ref(null);
+const router = useRouter();
 
-const userProfile = ref({ firstName: '', lastName: '' });
+const userProfile = ref({ firstName: '', lastName: '', email: '', category: '' });
 const feedPosts = ref([]);
-const jobOffers = ref([]); // Agregado el arreglo para la barra derecha
+const jobOffers = ref([]);
+const tables = ref([]);
+const selectedTable = ref(null);
+const columns = ref([]);
+const rows = ref([]);
+const rowLimit = ref(100);
 
 const mockController = {
   fetchUserData() {
@@ -185,25 +259,71 @@ const mockController = {
   }
 };
 
+async function loadTables() {
+  try {
+    const res = await fetch('/api/tables');
+    tables.value = await res.json();
+  } catch (e) {
+    console.error('Error cargando tablas', e);
+    tables.value = [];
+  }
+}
+
+async function selectTable(name) {
+  selectedTable.value = name;
+  columns.value = [];
+  rows.value = [];
+  try {
+    const cRes = await fetch(`/api/tables/${name}/columns`);
+    columns.value = await cRes.json();
+  } catch (e) {
+    console.error('Error cargando columnas', e);
+    columns.value = [];
+  }
+  try {
+    const rRes = await fetch(`/api/tables/${name}/rows?limit=${rowLimit.value}`);
+    rows.value = await rRes.json();
+  } catch (e) {
+    console.error('Error cargando filas', e);
+    rows.value = [];
+  }
+}
+
 onMounted(() => {
-  userProfile.value = mockController.fetchUserData();
+  const authUser = getAuthUser();
+  if (!authUser) {
+    router.replace({ name: 'home' });
+    return;
+  }
+
+  userProfile.value = {
+    firstName: authUser.firstName || '',
+    lastName: authUser.lastName || '',
+    email: authUser.email || '',
+    category: authUser.category || 'Miembro UCAB'
+  };
   feedPosts.value = mockController.fetchFeedPosts();
-  jobOffers.value = mockController.fetchJobOffers(); // Cargamos las ofertas al iniciar
+  jobOffers.value = mockController.fetchJobOffers();
+  loadTables();
 });
 
-const handleFlujoPagoTransaccion = (datosRecibidos) => {
-  transaccionActiva.value = datosRecibidos; 
-  currentView.value = 'pago'; 
+const logout = () => {
+  clearAuthUser();
+  router.push({ name: 'home' });
 };
 
-// TEMPORAL: handler provisional que crea una transacción de ejemplo y abre el flujo de pago
+const handleFlujoPagoTransaccion = (datosRecibidos) => {
+  transaccionActiva.value = datosRecibidos;
+  currentView.value = 'pago';
+};
+
 const irAPagoProvisional = () => {
   transaccionActiva.value = {
     descripcion: 'Pago provisional desde Solicitudes',
     monto: 15.00
-  }
-  currentView.value = 'pago'
-}
+  };
+  currentView.value = 'pago';
+};
 
 const confirmarPagoFinal = () => {
   alert('¡Pago procesado y registrado con éxito en el sistema!');
@@ -227,6 +347,27 @@ const handleMoreInfo = (company) => console.log('Más info de:', company);
   background-size: cover;
   border: 3px solid #f5e1a4;
 }
+.btn-logout {
+  margin-top: 12px;
+  background-color: #ef4444;
+  color: white;
+  border: none;
+  border-radius: 14px;
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 700;
+  line-height: 1;
+  width: auto;
+  min-width: 110px;
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  transition: background-color 0.25s ease;
+}
+.btn-logout:hover {
+  background-color: #dc2626;
+}
 .dynamic-full-content {
   flex: 1;
   padding: 30px;
@@ -234,5 +375,55 @@ const handleMoreInfo = (company) => console.log('Más info de:', company);
   display: flex;
   justify-content: center;
   align-items: flex-start;
+}
+.db-browser {
+  width: 100%;
+}
+.db-layout {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 20px;
+}
+.tables-list,
+.table-details {
+  background: white;
+  border-radius: 20px;
+  padding: 20px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+}
+.tables-list ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.tables-list li {
+  margin-bottom: 10px;
+}
+.tables-list a {
+  color: #1d4ed8;
+  text-decoration: none;
+}
+.tables-list a:hover {
+  text-decoration: underline;
+}
+.columns ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.columns li {
+  margin-bottom: 6px;
+}
+.rows table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.rows th,
+.rows td {
+  border: 1px solid #e5e7eb;
+  padding: 10px;
+}
+.rows th {
+  background: #f3f4f6;
 }
 </style>

@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import { getAuthUser } from '../services/authService'
 import HomeView from '../views/HomeView.vue'
-import MainView from '../views/MainView.vue' // TEMPORAL: ruta auxiliar para revisar MainView
+import MainView from '../views/MainView.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -13,7 +14,7 @@ const router = createRouter({
     {
       path: '/main',
       name: 'main',
-      component: MainView // TEMPORAL: ruta auxiliar para revisar MainView. Eliminar cuando ya no sea necesaria.
+      component: MainView
     },
     // Aquí agregarás más pantallas en el futuro. Ejemplo:
     // {
@@ -22,6 +23,15 @@ const router = createRouter({
     //   component: () => import('../views/DashboardView.vue')
     // }
   ]
+})
+
+router.beforeEach((to, from, next) => {
+  const authUser = getAuthUser()
+  if (to.name !== 'home' && !authUser) {
+    next({ name: 'home' })
+  } else {
+    next()
+  }
 })
 
 export default router
