@@ -73,15 +73,63 @@
 
       <template v-if="currentView === 'perfil'">
         <main class="dynamic-full-content">
-          <div class="view-card-container profile-main-view">
+          <div class="profile-main-view">
             <h2>Perfil Principal</h2>
-            <p class="profile-intro">Bienvenida, {{ userProfile.firstName }}. Aquí está tu panel principal.</p>
-            <div class="profile-summary">
-              <div class="profile-summary-row"><strong>Nombre:</strong> {{ userProfile.firstName }} {{ userProfile.lastName }}</div>
-              <div class="profile-summary-row"><strong>Rol:</strong> Estudiante UCAB</div>
-              <div class="profile-summary-row"><strong>Correo:</strong> {{ userProfile.email }}</div>
-              <div class="profile-summary-row"><strong>Categoría:</strong> {{ userProfile.category }}</div>
-            </div>
+            <p class="profile-intro">Bienvenida, {{ userProfile.firstName }}. Aquí está tu información registrada en la base de datos.</p>
+
+            <section class="profile-card-panel profile-header-card">
+              <div class="profile-header-main">
+                <div>
+                  <h3>{{ displayValue(userProfile.firstName) }} {{ displayValue(userProfile.lastName) }}</h3>
+                  <p>{{ displayValue(userProfile.email) }}</p>
+                </div>
+                <div class="profile-chip">{{ displayValue(userProfile.ci) }}</div>
+              </div>
+
+              <div class="profile-header-grid">
+                <div><strong>Primer nombre</strong><span>{{ displayValue(userProfile.firstName) }}</span></div>
+                <div><strong>Primer apellido</strong><span>{{ displayValue(userProfile.lastName) }}</span></div>
+                <div><strong>Categoría</strong><span>{{ displayValue(userProfile.category) }}</span></div>
+                <div><strong>Estado de cuenta</strong><span>{{ displayValue(userProfile.accountStatus) }}</span></div>
+              </div>
+            </section>
+
+            <section class="profile-card-panel profile-card-panel--two-columns">
+              <div class="profile-info-block">
+                <div class="profile-summary-row"><strong>CI</strong><span>{{ displayValue(userProfile.ci) }}</span></div>
+                <div class="profile-summary-row profile-editable-row">
+                  <strong>Segundo nombre</strong>
+                  <span>{{ displayValue(userProfile.secondName) }}</span>
+                  <button class="btn-mini-action" :disabled="!canEditSecondField('secondName')" @click="handleEditField('secondName')">Modificar</button>
+                </div>
+                <div class="profile-summary-row profile-editable-row">
+                  <strong>Segundo apellido</strong>
+                  <span>{{ displayValue(userProfile.secondLastName) }}</span>
+                  <button class="btn-mini-action" :disabled="!canEditSecondField('secondLastName')" @click="handleEditField('secondLastName')">Modificar</button>
+                </div>
+                <div class="profile-summary-row"><strong>Sexo</strong><span>{{ displayValue(userProfile.sex) }}</span></div>
+                <div class="profile-summary-row"><strong>Fecha de nacimiento</strong><span>{{ displayValue(userProfile.birthDate) }}</span></div>
+              </div>
+
+              <div class="profile-info-block profile-info-block--highlight">
+                <div class="profile-summary-row profile-editable-row">
+                  <strong>Dirección</strong>
+                  <span>{{ displayValue(userProfile.address) }}</span>
+                  <button class="btn-mini-action" @click="handleEditField('address')">Modificar</button>
+                </div>
+                <div class="profile-summary-row profile-editable-row">
+                  <strong>Teléfono</strong>
+                  <span>{{ displayValue(userProfile.phone) }}</span>
+                  <button class="btn-mini-action" @click="handleEditField('phone')">Modificar</button>
+                </div>
+                <div class="profile-summary-row"><strong>Última conexión</strong><span>{{ displayValue(userProfile.lastConnection) }}</span></div>
+                <div class="profile-summary-row"><strong>Fecha cambio contraseña</strong><span>{{ displayValue(userProfile.passwordChangeDate) }}</span></div>
+                <div class="profile-summary-row profile-summary-password-row">
+                  <strong>Contraseña</strong>
+                  <button class="btn-action btn-password-change" @click="handleChangePassword">Cambiar contraseña</button>
+                </div>
+              </div>
+            </section>
             <div class="profile-actions">
               <button class="btn-action" @click="currentView = 'feed'">Ver novedades</button>
               <button class="btn-action" @click="currentView = 'solicitudes'">Ver solicitudes</button>
@@ -234,7 +282,22 @@ const searchQuery = ref('');
 const transaccionActiva = ref(null);
 const router = useRouter();
 
-const userProfile = ref({ firstName: '', lastName: '', email: '', category: '' });
+const userProfile = ref({
+  ci: '',
+  firstName: '',
+  secondName: '',
+  lastName: '',
+  secondLastName: '',
+  sex: '',
+  email: '',
+  address: '',
+  birthDate: '',
+  phone: '',
+  category: '',
+  accountStatus: '',
+  lastConnection: ''
+  ,passwordChangeDate: ''
+});
 const feedPosts = ref([]);
 const jobOffers = ref([]);
 const tables = ref([]);
@@ -269,6 +332,45 @@ async function loadTables() {
   }
 }
 
+async function loadUserProfile(authUser) {
+  const profileQuery = authUser.email
+    ? `email=${encodeURIComponent(authUser.email)}`
+    : authUser.ci
+      ? `ci=${encodeURIComponent(authUser.ci)}`
+      : '';
+
+  if (!profileQuery) {
+    return;
+  }
+
+  try {
+    const response = await fetch(`/api/auth/profile?${profileQuery}`);
+    if (!response.ok) {
+      return;
+    }
+
+    const profile = await response.json();
+    userProfile.value = {
+      ci: profile.ci || authUser.ci || '',
+      firstName: profile.firstName || authUser.firstName || '',
+      secondName: profile.secondName || '',
+      lastName: profile.lastName || authUser.lastName || '',
+      secondLastName: profile.secondLastName || '',
+      sex: profile.sex || '',
+      email: profile.email || authUser.email || '',
+      address: profile.address || '',
+      birthDate: profile.birthDate || '',
+      phone: profile.phone || '',
+      category: profile.category || authUser.category || 'Miembro UCAB',
+      accountStatus: profile.accountStatus || '',
+      lastConnection: profile.lastConnection || '',
+      passwordChangeDate: profile.passwordChangeDate || ''
+    };
+  } catch (error) {
+    console.error('Error cargando perfil del usuario:', error);
+  }
+}
+
 async function selectTable(name) {
   selectedTable.value = name;
   columns.value = [];
@@ -297,11 +399,22 @@ onMounted(() => {
   }
 
   userProfile.value = {
+    ci: authUser.ci || '',
     firstName: authUser.firstName || '',
+    secondName: authUser.secondName || '',
     lastName: authUser.lastName || '',
+    secondLastName: authUser.secondLastName || '',
+    sex: authUser.sex || '',
     email: authUser.email || '',
-    category: authUser.category || 'Miembro UCAB'
+    address: authUser.address || '',
+    birthDate: authUser.birthDate || '',
+    phone: authUser.phone || '',
+    category: authUser.category || 'Miembro UCAB',
+    accountStatus: authUser.accountStatus || '',
+    lastConnection: authUser.lastConnection || '',
+    passwordChangeDate: authUser.passwordChangeDate || ''
   };
+  loadUserProfile(authUser);
   feedPosts.value = mockController.fetchFeedPosts();
   jobOffers.value = mockController.fetchJobOffers();
   loadTables();
@@ -315,6 +428,76 @@ const logout = () => {
 const handleFlujoPagoTransaccion = (datosRecibidos) => {
   transaccionActiva.value = datosRecibidos;
   currentView.value = 'pago';
+};
+
+const handleChangePassword = () => {
+  alert('La opción para cambiar la contraseña se habilitará en el siguiente paso.');
+};
+
+const displayValue = (value) => {
+  return value === null || value === undefined || String(value).trim() === '' ? 'No registrado' : value;
+};
+
+const canEditSecondField = (field) => {
+  return !userProfile.value[field] || String(userProfile.value[field]).trim() === '';
+};
+
+const fieldLabels = {
+  secondName: 'Segundo nombre',
+  secondLastName: 'Segundo apellido',
+  address: 'Dirección',
+  phone: 'Teléfono'
+};
+
+const fieldPlaceholders = {
+  secondName: 'Ingresa el segundo nombre',
+  secondLastName: 'Ingresa el segundo apellido',
+  address: 'Ingresa la dirección actualizada',
+  phone: 'Ingresa el teléfono actualizado'
+};
+
+const handleEditField = async (field) => {
+  if ((field === 'secondName' || field === 'secondLastName') && !canEditSecondField(field)) {
+    alert('Este campo ya tiene valor y no se puede modificar.');
+    return;
+  }
+
+  const currentValue = userProfile.value[field] || '';
+  const nextValue = window.prompt(fieldLabels[field] || 'Modificar campo', currentValue || '');
+
+  if (nextValue === null) {
+    return;
+  }
+
+  const trimmedValue = nextValue.trim();
+  if (!trimmedValue) {
+    alert('El valor no puede quedar vacío.');
+    return;
+  }
+
+  try {
+    const response = await fetch('/api/auth/profile/update', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ci: userProfile.value.ci,
+        field,
+        value: trimmedValue
+      })
+    });
+
+    const result = await response.json();
+    if (!response.ok) {
+      alert(result.error || 'No se pudo actualizar el perfil.');
+      return;
+    }
+
+    userProfile.value[field] = trimmedValue;
+    alert(result.message || 'Perfil actualizado correctamente.');
+  } catch (error) {
+    console.error('Error actualizando perfil:', error);
+    alert('No se pudo conectar con el servidor.');
+  }
 };
 
 const irAPagoProvisional = () => {
@@ -425,5 +608,205 @@ const handleMoreInfo = (company) => console.log('Más info de:', company);
 }
 .rows th {
   background: #f3f4f6;
+}
+
+.profile-main-view {
+  width: 100%;
+  max-width: 1080px;
+}
+
+.profile-main-view h2 {
+  color: #173a2e;
+  font-size: 28px;
+  margin-bottom: 8px;
+}
+
+.profile-intro {
+  color: #4f5b53;
+  margin-bottom: 18px;
+  font-size: 15px;
+}
+
+.profile-card-panel {
+  background: linear-gradient(180deg, #dcedc8 0%, #d3eab8 100%);
+  border-radius: 24px;
+  padding: 24px 28px;
+  box-shadow: 0 10px 20px rgba(32, 72, 43, 0.08);
+  border: 1px solid rgba(25, 80, 33, 0.08);
+  margin-bottom: 16px;
+}
+
+.profile-header-main {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  padding-bottom: 14px;
+  margin-bottom: 14px;
+  border-bottom: 1px solid rgba(58, 96, 63, 0.25);
+}
+
+.profile-header-main h3 {
+  font-size: 24px;
+  color: #173a2e;
+  margin-bottom: 6px;
+}
+
+.profile-header-main p {
+  color: #4f5b53;
+}
+
+.profile-chip {
+  background: #f1f5f2;
+  color: #173a2e;
+  border-radius: 999px;
+  padding: 10px 16px;
+  font-weight: 700;
+  min-width: 120px;
+  text-align: center;
+  box-shadow: inset 0 0 0 1px rgba(23, 58, 46, 0.08);
+}
+
+.profile-header-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px 20px;
+}
+
+.profile-header-grid div,
+.profile-info-block .profile-summary-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+}
+
+.profile-header-grid strong,
+.profile-info-block strong,
+.profile-summary-password-row strong {
+  color: #173a2e;
+  font-weight: 800;
+}
+
+.profile-header-grid span,
+.profile-info-block span {
+  color: #334155;
+}
+
+.profile-card-panel--two-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.profile-info-block {
+  background: rgba(255, 255, 255, 0.28);
+  border-radius: 20px;
+  padding: 18px 20px;
+  border: 1px solid rgba(23, 58, 46, 0.08);
+}
+
+.profile-info-block--highlight {
+  background: rgba(248, 255, 239, 0.42);
+}
+
+.profile-summary-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.profile-editable-row {
+  gap: 14px;
+}
+
+.profile-summary-password-row {
+  justify-content: space-between;
+}
+
+.btn-action,
+.btn-mini-action,
+.btn-edit,
+.btn-password-change,
+.btn-guardar-reserva {
+  background: linear-gradient(180deg, #39aaf2 0%, #2f9de6 100%);
+  color: white;
+  border: none;
+  border-radius: 999px;
+  padding: 10px 18px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 8px 16px rgba(41, 146, 213, 0.22);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
+}
+
+.btn-action:hover,
+.btn-mini-action:hover,
+.btn-edit:hover,
+.btn-password-change:hover,
+.btn-guardar-reserva:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 18px rgba(41, 146, 213, 0.26);
+}
+
+.btn-action:disabled,
+.btn-mini-action:disabled,
+.btn-edit:disabled,
+.btn-password-change:disabled,
+.btn-guardar-reserva:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.btn-mini-action {
+  padding: 8px 14px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.btn-edit {
+  width: 100%;
+  justify-content: center;
+  margin-top: 6px;
+}
+
+.btn-password-change {
+  min-width: 180px;
+}
+
+.profile-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.profile-actions .btn-action {
+  min-width: 160px;
+}
+
+@media (max-width: 1024px) {
+  .profile-header-grid,
+  .profile-card-panel--two-columns {
+    grid-template-columns: 1fr;
+  }
+
+  .profile-header-main {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 768px) {
+  .profile-actions {
+    flex-direction: column;
+  }
+
+  .profile-actions .btn-action {
+    width: 100%;
+  }
 }
 </style>

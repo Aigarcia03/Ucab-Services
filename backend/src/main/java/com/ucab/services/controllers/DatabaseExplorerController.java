@@ -119,6 +119,129 @@ public class DatabaseExplorerController {
         }
     }
 
+    @GetMapping("/auth/profile")
+    public ResponseEntity<Map<String, Object>> getProfile(@RequestParam(required = false) String email,
+                                                          @RequestParam(required = false) Integer ci) {
+        if ((email == null || email.isBlank()) && ci == null) {
+            Map<String, Object> error = new HashMap<>();
+            error.put("error", "Debes enviar el correo institucional o la CI del miembro.");
+            return ResponseEntity.badRequest().body(error);
+        }
+
+        String sql = "SELECT CI, PrimerNombre, SegundoNombre, PrimerApellido, SegundoApellido, Sexo, CorreoInstitucional, DireccionHabitacion, FechaNacimiento, Telefono, Categoria, EstadoCuenta, UltimaConexion, FechaCambioContraseña FROM Miembro WHERE CorreoInstitucional = ? OR CI = ?";
+        List<Map<String, Object>> results = jdbcTemplate.query(sql,
+                ps -> {
+                    ps.setString(1, email != null ? email : "");
+                    if (ci != null) {
+                        ps.setInt(2, ci);
+                    } else {
+                        ps.setNull(2, java.sql.Types.INTEGER);
+                    }
+                },
+                (rs, rowNum) -> {
+                    Map<String, Object> profile = new HashMap<>();
+                    profile.put("ci", rs.getInt("CI"));
+                    profile.put("firstName", rs.getString("PrimerNombre"));
+                    profile.put("secondName", rs.getString("SegundoNombre"));
+                    profile.put("lastName", rs.getString("PrimerApellido"));
+                    profile.put("secondLastName", rs.getString("SegundoApellido"));
+                    profile.put("sex", rs.getString("Sexo"));
+                    profile.put("email", rs.getString("CorreoInstitucional"));
+                    profile.put("address", rs.getString("DireccionHabitacion"));
+                    Date birthDate = rs.getDate("FechaNacimiento");
+                    profile.put("birthDate", birthDate != null ? birthDate.toLocalDate().toString() : null);
+                    profile.put("phone", rs.getString("Telefono"));
+                    profile.put("category", rs.getString("Categoria"));
+                    profile.put("accountStatus", rs.getString("EstadoCuenta"));
+                    profile.put("lastConnection", rs.getString("UltimaConexion"));
+                    profile.put("passwordChangeDate", rs.getTimestamp("FechaCambioContraseña") != null
+                            ? rs.getTimestamp("FechaCambioContraseña").toString()
+                            : null);
+                    return profile;
+                });
+
+        if (results.isEmpty()) {
+            Map<String, Object> error = new HashMap<>();
+            error.put("error", "No se encontró el perfil del miembro.");
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
+        }
+
+        return ResponseEntity.ok(results.get(0));
+    }
+
+    @PostMapping("/auth/profile/update")
+    public ResponseEntity<Map<String, Object>> updateProfileField(@RequestBody Map<String, Object> payload) {
+        try {
+            Object ciValue = payload.get("ci");
+            String field = String.valueOf(payload.get("field"));
+            String value = payload.get("value") == null ? null : String.valueOf(payload.get("value")).trim();
+
+            if (ciValue == null || field == null || field.isBlank()) {
+                Map<String, Object> error = new HashMap<>();
+                error.put("error", "Debes enviar la CI y el campo a modificar.");
+                return ResponseEntity.badRequest().body(error);
+            }
+
+            int ci = Integer.parseInt(String.valueOf(ciValue));
+
+            if (value == null || value.isBlank()) {
+                Map<String, Object> error = new HashMap<>();
+                error.put("error", "El nuevo valor no puede estar vacío.");
+                return ResponseEntity.badRequest().body(error);
+            }
+
+            String column;
+            switch (field) {
+                case "secondName" -> column = "SegundoNombre";
+                case "secondLastName" -> column = "SegundoApellido";
+                case "address" -> column = "DireccionHabitacion";
+                case "phone" -> column = "Telefono";
+                default -> {
+                    Map<String, Object> error = new HashMap<>();
+                    error.put("error", "Campo no permitido para modificación.");
+                    return ResponseEntity.badRequest().body(error);
+                }
+            }
+
+            if ("SegundoNombre".equals(column) || "SegundoApellido".equals(column)) {
+                String currentValue = jdbcTemplate.queryForObject(
+                        "SELECT " + column + " FROM Miembro WHERE CI = ?",
+                        new Object[]{ci},
+                        String.class
+                );
+
+                if (currentValue != null && !currentValue.isBlank()) {
+                    Map<String, Object> error = new HashMap<>();
+                    error.put("error", column + " ya tiene valor y no se puede modificar.");
+                    return ResponseEntity.status(HttpStatus.CONFLICT).body(error);
+                }
+            }
+
+            String sql = "UPDATE Miembro SET " + column + " = ? WHERE CI = ?";
+            int updatedRows = jdbcTemplate.update(sql, value, ci);
+
+            if (updatedRows == 0) {
+                Map<String, Object> error = new HashMap<>();
+                error.put("error", "No se encontró el miembro para actualizar.");
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
+            }
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("message", "Campo actualizado correctamente.");
+            response.put("field", field);
+            response.put("value", value);
+            return ResponseEntity.ok(response);
+        } catch (NumberFormatException e) {
+            Map<String, Object> error = new HashMap<>();
+            error.put("error", "CI inválida.");
+            return ResponseEntity.badRequest().body(error);
+        } catch (Exception e) {
+            Map<String, Object> error = new HashMap<>();
+            error.put("error", "No se pudo actualizar el perfil: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
+        }
+    }
+
     @GetMapping("/tables")
     public ResponseEntity<List<TableInfo>> listTables() throws SQLException {
         try (Connection connection = Objects.requireNonNull(jdbcTemplate.getDataSource()).getConnection()) {
