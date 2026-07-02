@@ -26,7 +26,13 @@
       <aside class="left-sidebar">
         <div class="profile-card">
           <div class="profile-avatar-wrapper">
-            <div class="avatar-mock-circle"></div>
+            <img
+              v-if="userProfile.avatar"
+              :src="userProfile.avatar"
+              alt="Avatar del usuario"
+              class="profile-avatar"
+            />
+            <div v-else class="avatar-placeholder">{{ avatarInitials() }}</div>
           </div>
           <h2 class="profile-name">{{ userProfile.firstName }} {{ userProfile.lastName }}</h2>
           <button class="btn-edit" @click="currentView = 'perfil'">
@@ -83,7 +89,19 @@
                   <h3>{{ displayValue(userProfile.firstName) }} {{ displayValue(userProfile.lastName) }}</h3>
                   <p>{{ displayValue(userProfile.email) }}</p>
                 </div>
-                <div class="profile-chip">{{ displayValue(userProfile.ci) }}</div>
+                <div class="profile-header-tools">
+                  <input
+                    ref="avatarInputRef"
+                    type="file"
+                    accept="image/*"
+                    class="avatar-file-input"
+                    @change="handleAvatarChange"
+                  />
+                  <button class="btn-mini-action btn-avatar-change" @click="triggerAvatarPicker">
+                    Cambiar foto
+                  </button>
+                  <div class="profile-chip">{{ displayValue(userProfile.ci) }}</div>
+                </div>
               </div>
 
               <div class="profile-header-grid">
@@ -271,15 +289,16 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
-import { getAuthUser, clearAuthUser } from '../services/authService';
+import { getAuthUser, clearAuthUser, closeLatestSession, closeLatestSessionOnUnload } from '../services/authService';
 import Reservation from './Reservation.vue';
 import Payments from './Payments.vue';
 
 const currentView = ref('feed');
 const searchQuery = ref('');
 const transaccionActiva = ref(null);
+const avatarInputRef = ref(null);
 const router = useRouter();
 
 const userProfile = ref({
@@ -296,7 +315,8 @@ const userProfile = ref({
   category: '',
   accountStatus: '',
   lastConnection: ''
-  ,passwordChangeDate: ''
+  ,passwordChangeDate: '',
+  avatar: ''
 });
 const feedPosts = ref([]);
 const jobOffers = ref([]);
@@ -365,6 +385,7 @@ async function loadUserProfile(authUser) {
       accountStatus: profile.accountStatus || '',
       lastConnection: profile.lastConnection || '',
       passwordChangeDate: profile.passwordChangeDate || ''
+      ,avatar: profile.avatar || ''
     };
   } catch (error) {
     console.error('Error cargando perfil del usuario:', error);
@@ -398,6 +419,8 @@ onMounted(() => {
     return;
   }
 
+  window.addEventListener('beforeunload', handleBeforeUnload);
+
   userProfile.value = {
     ci: authUser.ci || '',
     firstName: authUser.firstName || '',
@@ -413,6 +436,7 @@ onMounted(() => {
     accountStatus: authUser.accountStatus || '',
     lastConnection: authUser.lastConnection || '',
     passwordChangeDate: authUser.passwordChangeDate || ''
+    ,avatar: authUser.avatar || ''
   };
   loadUserProfile(authUser);
   feedPosts.value = mockController.fetchFeedPosts();
@@ -420,9 +444,19 @@ onMounted(() => {
   loadTables();
 });
 
-const logout = () => {
+onUnmounted(() => {
+  window.removeEventListener('beforeunload', handleBeforeUnload);
+});
+
+const logout = async () => {
+  await closeLatestSession(userProfile.value.ci);
+  window.removeEventListener('beforeunload', handleBeforeUnload);
   clearAuthUser();
   router.push({ name: 'home' });
+};
+
+const handleBeforeUnload = () => {
+  closeLatestSessionOnUnload(userProfile.value.ci);
 };
 
 const handleFlujoPagoTransaccion = (datosRecibidos) => {
@@ -432,6 +466,63 @@ const handleFlujoPagoTransaccion = (datosRecibidos) => {
 
 const handleChangePassword = () => {
   alert('La opción para cambiar la contraseña se habilitará en el siguiente paso.');
+};
+
+const triggerAvatarPicker = () => {
+  avatarInputRef.value?.click();
+};
+
+const avatarInitials = () => {
+  const firstInitial = (userProfile.value.firstName || '').trim().charAt(0);
+  const lastInitial = (userProfile.value.lastName || '').trim().charAt(0);
+  const initials = `${firstInitial}${lastInitial}`.trim();
+  return initials || 'U';
+};
+
+const handleAvatarChange = async (event) => {
+  const file = event.target.files?.[0];
+  if (!file) {
+    return;
+  }
+
+  if (!file.type.startsWith('image/')) {
+    alert('Debes seleccionar un archivo de imagen.');
+    event.target.value = '';
+    return;
+  }
+
+  try {
+    const avatarDataUrl = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result || ''));
+      reader.onerror = () => reject(new Error('No se pudo leer la imagen.'));
+      reader.readAsDataURL(file);
+    });
+
+    const response = await fetch('/api/auth/profile/avatar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ci: userProfile.value.ci,
+        avatar: avatarDataUrl
+      })
+    });
+
+    const result = await response.json();
+    if (!response.ok) {
+      alert(result.error || 'No se pudo actualizar el avatar.');
+      event.target.value = '';
+      return;
+    }
+
+    userProfile.value.avatar = result.avatar || avatarDataUrl;
+    alert(result.message || 'Avatar actualizado correctamente.');
+  } catch (error) {
+    console.error('Error actualizando avatar:', error);
+    alert('No se pudo conectar con el servidor.');
+  } finally {
+    event.target.value = '';
+  }
 };
 
 const displayValue = (value) => {
@@ -521,15 +612,35 @@ const handleMoreInfo = (company) => console.log('Más info de:', company);
 
 <style scoped src="./Dashboard.css"></style>
 <style scoped>
-.avatar-mock-circle {
+.avatar-file-input {
+  display: none;
+}
+
+.btn-avatar-change {
+  margin-bottom: 10px;
+  background-color: #ffffff;
+  color: #0f172a;
+  border: 1px solid rgba(15, 23, 42, 0.15);
+}
+
+.avatar-placeholder {
   width: 90px;
   height: 90px;
-  background-color: #e5e7eb;
   border-radius: 50%;
-  background-image: url('https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200');
-  background-size: cover;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #dbeafe, #bfdbfe);
+  color: #1d4ed8;
+  font-weight: 700;
+  font-size: 28px;
   border: 3px solid #f5e1a4;
 }
+
+.profile-avatar-wrapper {
+  cursor: default;
+}
+
 .btn-logout {
   margin-top: 12px;
   background-color: #ef4444;
@@ -665,6 +776,12 @@ const handleMoreInfo = (company) => console.log('Más info de:', company);
   min-width: 120px;
   text-align: center;
   box-shadow: inset 0 0 0 1px rgba(23, 58, 46, 0.08);
+}
+
+.profile-header-tools {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .profile-header-grid {

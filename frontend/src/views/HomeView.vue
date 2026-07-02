@@ -42,7 +42,9 @@ const handleLogin = async () => {
       const errorBody = await response.text()
       try {
         const parsedError = JSON.parse(errorBody)
-        loginError.value = parsedError.error || 'Credenciales inválidas.'
+        loginError.value = parsedError.detail
+          ? `${parsedError.error || 'Error de autenticación.'} (${parsedError.detail})`
+          : (parsedError.error || 'Credenciales inválidas.')
       } catch {
         loginError.value = errorBody || 'Credenciales inválidas.'
       }

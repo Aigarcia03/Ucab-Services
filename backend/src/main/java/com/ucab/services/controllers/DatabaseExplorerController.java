@@ -1,5 +1,8 @@
 package com.ucab.services.controllers;
 
+import jakarta.servlet.http.HttpServletRequest;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -19,14 +22,20 @@ import java.sql.Date;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Base64;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @RestController
 @RequestMapping("/api")
 public class DatabaseExplorerController {
 
+    private static final Logger logger = LoggerFactory.getLogger(DatabaseExplorerController.class);
     private final JdbcTemplate jdbcTemplate;
 
     public DatabaseExplorerController(JdbcTemplate jdbcTemplate) {
@@ -34,8 +43,10 @@ public class DatabaseExplorerController {
     }
 
     @PostMapping("/auth/login")
-    public ResponseEntity<Map<String, Object>> login(@RequestBody Map<String, String> payload) {
+    public ResponseEntity<Map<String, Object>> login(@RequestBody Map<String, String> payload,
+                                                     HttpServletRequest request) {
         String email = payload.get("usuario");
+
         String password = payload.get("contrasena");
 
         String sql = "SELECT CI, PrimerNombre, PrimerApellido, CorreoInstitucional, Categoria FROM Miembro WHERE CorreoInstitucional = ? AND contrasena = ?";
@@ -60,7 +71,52 @@ public class DatabaseExplorerController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(error);
         }
 
-        return ResponseEntity.ok(results.get(0));
+        Map<String, Object> authenticatedUser = results.get(0);
+        Integer ci = (Integer) authenticatedUser.get("ci");
+        if (ci != null) {
+            try {
+                closeLatestOpenSession(ci);
+                createNewSession(ci, resolveClientIp(request));
+            } catch (Exception e) {
+                logger.error("No se pudo registrar la sesión para CI {}", ci, e);
+                Map<String, Object> error = new HashMap<>();
+                error.put("error", "No se pudo registrar la sesión de usuario. Intenta de nuevo.");
+                error.put("detail", e.getMessage());
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
+            }
+        }
+
+        return ResponseEntity.ok(authenticatedUser);
+    }
+
+    @PostMapping("/auth/session/close-latest")
+    public ResponseEntity<Map<String, Object>> closeLatestSession(@RequestBody Map<String, Object> payload) {
+        try {
+            Object ciValue = payload.get("ci");
+            if (ciValue == null) {
+                Map<String, Object> error = new HashMap<>();
+                error.put("error", "Debes enviar la CI del miembro.");
+                return ResponseEntity.badRequest().body(error);
+            }
+
+            int ci = Integer.parseInt(String.valueOf(ciValue));
+            int updatedRows = closeLatestOpenSession(ci);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("message", updatedRows > 0
+                    ? "Sesión cerrada correctamente."
+                    : "No había sesiones abiertas para cerrar.");
+            response.put("updatedRows", updatedRows);
+            return ResponseEntity.ok(response);
+        } catch (NumberFormatException e) {
+            Map<String, Object> error = new HashMap<>();
+            error.put("error", "CI inválida.");
+            return ResponseEntity.badRequest().body(error);
+        } catch (Exception e) {
+            Map<String, Object> error = new HashMap<>();
+            error.put("error", "No se pudo cerrar la sesión: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
+        }
     }
 
     @PostMapping("/auth/register")
@@ -128,7 +184,7 @@ public class DatabaseExplorerController {
             return ResponseEntity.badRequest().body(error);
         }
 
-        String sql = "SELECT CI, PrimerNombre, SegundoNombre, PrimerApellido, SegundoApellido, Sexo, CorreoInstitucional, DireccionHabitacion, FechaNacimiento, Telefono, Categoria, EstadoCuenta, UltimaConexion, FechaCambioContraseña FROM Miembro WHERE CorreoInstitucional = ? OR CI = ?";
+        String sql = "SELECT CI, PrimerNombre, SegundoNombre, PrimerApellido, SegundoApellido, Sexo, CorreoInstitucional, DireccionHabitacion, FechaNacimiento, Telefono, Categoria, EstadoCuenta, UltimaConexion, FechaCambioContraseña, avatar FROM Miembro WHERE CorreoInstitucional = ? OR CI = ?";
         List<Map<String, Object>> results = jdbcTemplate.query(sql,
                 ps -> {
                     ps.setString(1, email != null ? email : "");
@@ -157,6 +213,8 @@ public class DatabaseExplorerController {
                     profile.put("passwordChangeDate", rs.getTimestamp("FechaCambioContraseña") != null
                             ? rs.getTimestamp("FechaCambioContraseña").toString()
                             : null);
+                        byte[] avatarBytes = rs.getBytes("avatar");
+                        profile.put("avatar", avatarBytes != null ? toImageDataUrl(avatarBytes) : null);
                     return profile;
                 });
 
@@ -167,6 +225,51 @@ public class DatabaseExplorerController {
         }
 
         return ResponseEntity.ok(results.get(0));
+    }
+
+    @PostMapping("/auth/profile/avatar")
+    public ResponseEntity<Map<String, Object>> updateProfileAvatar(@RequestBody Map<String, Object> payload) {
+        try {
+            Object ciValue = payload.get("ci");
+            String avatarData = payload.get("avatar") == null ? null : String.valueOf(payload.get("avatar")).trim();
+
+            if (ciValue == null) {
+                Map<String, Object> error = new HashMap<>();
+                error.put("error", "Debes enviar la CI del miembro.");
+                return ResponseEntity.badRequest().body(error);
+            }
+
+            if (avatarData == null || avatarData.isBlank()) {
+                Map<String, Object> error = new HashMap<>();
+                error.put("error", "Debes seleccionar una imagen válida.");
+                return ResponseEntity.badRequest().body(error);
+            }
+
+            int ci = Integer.parseInt(String.valueOf(ciValue));
+            byte[] avatarBytes = decodeAvatarPayload(avatarData);
+            String sql = "UPDATE Miembro SET avatar = ? WHERE CI = ?";
+            int updatedRows = jdbcTemplate.update(sql, avatarBytes, ci);
+
+            if (updatedRows == 0) {
+                Map<String, Object> error = new HashMap<>();
+                error.put("error", "No se encontró el miembro para actualizar el avatar.");
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
+            }
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("message", "Avatar actualizado correctamente.");
+            response.put("ci", ci);
+            response.put("avatar", toImageDataUrl(avatarBytes));
+            return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            Map<String, Object> error = new HashMap<>();
+            error.put("error", "La imagen enviada no tiene un formato válido.");
+            return ResponseEntity.badRequest().body(error);
+        } catch (Exception e) {
+            Map<String, Object> error = new HashMap<>();
+            error.put("error", "No se pudo actualizar el avatar: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
+        }
     }
 
     @PostMapping("/auth/profile/update")
@@ -323,6 +426,184 @@ public class DatabaseExplorerController {
         try (ResultSet rs = metadata.getTables(null, schema, tableName, new String[]{"TABLE"})) {
             return rs.next();
         }
+    }
+
+    private void createNewSession(int ci, String clientIp) {
+        Exception lastError = null;
+        List<String> mfaCandidates = resolveMfaCandidates();
+
+        String sqlWithoutUuid = "INSERT INTO sesion " +
+                "(ci, fechainicio, fechafin, ip, geolocalizacion, protocoloproteccion, mfa, conteointentosfallidos) " +
+                "VALUES (?, CURRENT_TIMESTAMP, NULL, ?, ?, ?, ?, ?)";
+
+        for (String mfaValue : mfaCandidates) {
+            try {
+                jdbcTemplate.update(
+                        sqlWithoutUuid,
+                        ci,
+                        clientIp,
+                        "No disponible",
+                        Boolean.FALSE,
+                        mfaValue,
+                        0
+                );
+                return;
+            } catch (Exception e) {
+                lastError = e;
+                logger.warn("Insert en sesion sin uuid falló con mfa='{}': {}", mfaValue, e.getMessage());
+            }
+        }
+
+        Integer nextUuid = null;
+        try {
+            nextUuid = jdbcTemplate.queryForObject(
+                    "SELECT COALESCE(MAX(uuid), 0) + 1 FROM sesion",
+                    Integer.class
+            );
+        } catch (Exception e) {
+            lastError = e;
+            logger.warn("No se pudo calcular next uuid en sesion: {}", e.getMessage());
+        }
+
+        if (nextUuid != null) {
+            String sqlWithUuid = "INSERT INTO sesion " +
+                    "(ci, fechainicio, fechafin, ip, geolocalizacion, uuid, protocoloproteccion, mfa, conteointentosfallidos) " +
+                    "VALUES (?, CURRENT_TIMESTAMP, NULL, ?, ?, ?, ?, ?, ?)";
+
+            for (String mfaValue : mfaCandidates) {
+                try {
+                    jdbcTemplate.update(
+                            sqlWithUuid,
+                            ci,
+                            clientIp,
+                            "No disponible",
+                            nextUuid,
+                            Boolean.FALSE,
+                            mfaValue,
+                            0
+                    );
+                    return;
+                } catch (Exception e) {
+                    lastError = e;
+                    logger.warn("Insert en sesion con uuid falló con mfa='{}': {}", mfaValue, e.getMessage());
+                }
+            }
+        }
+
+        throw new IllegalStateException(
+                "No se pudo insertar en sesion. Ultimo error: " +
+                        (lastError != null ? lastError.getMessage() : "desconocido"),
+                lastError
+        );
+    }
+
+    private List<String> resolveMfaCandidates() {
+        Set<String> candidates = new LinkedHashSet<>();
+
+        String checkDefinitionSql = "SELECT pg_get_constraintdef(c.oid) " +
+                "FROM pg_constraint c " +
+                "JOIN pg_class t ON t.oid = c.conrelid " +
+                "WHERE t.relname = 'sesion' AND c.contype = 'c' AND c.conname ILIKE '%mfa%' " +
+                "ORDER BY c.oid DESC LIMIT 1";
+
+        try {
+            String constraintDef = jdbcTemplate.queryForObject(checkDefinitionSql, String.class);
+            if (constraintDef != null && !constraintDef.isBlank()) {
+                Matcher matcher = Pattern.compile("'([^']*)'").matcher(constraintDef);
+                while (matcher.find()) {
+                    String value = matcher.group(1);
+                    if (value != null && !value.isBlank()) {
+                        candidates.add(value);
+                    }
+                }
+            }
+        } catch (Exception e) {
+            logger.warn("No se pudo leer sesion_mfa_check: {}", e.getMessage());
+        }
+
+        if (candidates.isEmpty()) {
+            candidates.add("No");
+            candidates.add("false");
+            candidates.add("N");
+            candidates.add("Desactivado");
+        }
+
+        return new ArrayList<>(candidates);
+    }
+
+    private int closeLatestOpenSession(int ci) {
+        String sql = "UPDATE sesion SET fechafin = CURRENT_TIMESTAMP WHERE ci = ? AND fechafin IS NULL " +
+                "AND fechainicio = (SELECT MAX(fechainicio) FROM sesion WHERE ci = ? AND fechafin IS NULL)";
+        return jdbcTemplate.update(sql, ci, ci);
+    }
+
+    private String resolveClientIp(HttpServletRequest request) {
+        if (request == null) {
+            return "0.0.0.0";
+        }
+
+        String forwarded = request.getHeader("X-Forwarded-For");
+        if (forwarded != null && !forwarded.isBlank()) {
+            return forwarded.split(",")[0].trim();
+        }
+
+        String realIp = request.getHeader("X-Real-IP");
+        if (realIp != null && !realIp.isBlank()) {
+            return realIp.trim();
+        }
+
+        String remoteAddr = request.getRemoteAddr();
+        return (remoteAddr == null || remoteAddr.isBlank()) ? "0.0.0.0" : remoteAddr;
+    }
+
+    private String toImageDataUrl(byte[] avatarBytes) {
+        String mimeType = detectImageMimeType(avatarBytes);
+        String base64 = Base64.getEncoder().encodeToString(avatarBytes);
+        return "data:" + mimeType + ";base64," + base64;
+    }
+
+    private byte[] decodeAvatarPayload(String avatarData) {
+        String base64 = avatarData;
+        int commaIndex = avatarData.indexOf(',');
+        if (commaIndex >= 0) {
+            base64 = avatarData.substring(commaIndex + 1);
+        }
+        return Base64.getDecoder().decode(base64);
+    }
+
+    private String detectImageMimeType(byte[] bytes) {
+        if (bytes == null || bytes.length < 4) {
+            return "image/png";
+        }
+
+        if (bytes.length >= 8
+                && (bytes[0] & 0xFF) == 0x89
+                && (bytes[1] & 0xFF) == 0x50
+                && (bytes[2] & 0xFF) == 0x4E
+                && (bytes[3] & 0xFF) == 0x47) {
+            return "image/png";
+        }
+
+        if ((bytes[0] & 0xFF) == 0xFF && (bytes[1] & 0xFF) == 0xD8) {
+            return "image/jpeg";
+        }
+
+        if ((bytes[0] & 0xFF) == 'G' && (bytes[1] & 0xFF) == 'I' && (bytes[2] & 0xFF) == 'F') {
+            return "image/gif";
+        }
+
+        if (bytes.length >= 12
+                && (bytes[0] & 0xFF) == 'R'
+                && (bytes[1] & 0xFF) == 'I'
+                && (bytes[2] & 0xFF) == 'F'
+                && (bytes[8] & 0xFF) == 'W'
+                && (bytes[9] & 0xFF) == 'E'
+                && (bytes[10] & 0xFF) == 'B'
+                && (bytes[11] & 0xFF) == 'P') {
+            return "image/webp";
+        }
+
+        return "image/png";
     }
 
     public static record TableInfo(String catalog, String schema, String name, String remarks) {
