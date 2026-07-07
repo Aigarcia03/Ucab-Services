@@ -81,6 +81,11 @@ const handleRegister = async () => {
     return
   }
 
+  if (!registerData.value.correo.toLowerCase().includes('@ucab')) {
+    registerError.value = 'El correo debe ser institucional (@ucab).'
+    return
+  }
+
   try {
     const payload = {
       CI: parseInt(registerData.value.ci, 10),

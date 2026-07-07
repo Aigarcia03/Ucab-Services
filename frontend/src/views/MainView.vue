@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <div class="dashboard-container">
     <header class="top-header">
       <div class="logo">UCAB-Services</div>
@@ -61,6 +61,10 @@
               <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/></svg>
               <span>Estado de cuentas</span>
             </li>
+            <li class="nav-item" :class="{ active: currentView === 'catalogos' }" @click="currentView = 'catalogos'">
+              <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+              <span>Catálogos</span>
+            </li>
             <li class="nav-item" :class="{ active: currentView === 'reservaciones' }" @click="currentView = 'reservaciones'">
               <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
               <span>Reservaciones</span>
@@ -68,6 +72,22 @@
             <li class="nav-item" :class="{ active: currentView === 'feed' }" @click="currentView = 'feed'">
               <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
               <span>Feed</span>
+            </li>
+            <li class="nav-item" :class="{ active: currentView === 'bolsa' }" @click="currentView = 'bolsa'">
+              <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="12" cy="12" r="3"/><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/></svg>
+              <span>Bolsa de trabajo</span>
+            </li>
+            <li class="nav-item" :class="{ active: currentView === 'viajes' }" @click="currentView = 'viajes'">
+              <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a15 15 0 0 1 0 20 15 15 0 0 1 0-20z"/><path d="M2 12h20"/></svg>
+              <span>Viajes</span>
+            </li>
+            <li class="nav-item" :class="{ active: currentView === 'tai' }" @click="currentView = 'tai'">
+              <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
+              <span>Mi TAI</span>
+            </li>
+            <li class="nav-item" :class="{ active: currentView === 'familiares' }" @click="currentView = 'familiares'">
+              <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+              <span>Familiar</span>
             </li>
             <li class="nav-item" :class="{ active: currentView === 'db' }" @click="currentView = 'db'">
               <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
@@ -77,7 +97,23 @@
         </nav>
       </aside>
 
-      <template v-if="currentView === 'perfil'">
+      <template v-if="currentView === 'catalogos'">
+        <main class="dynamic-full-content">
+          <CatalogView
+            @navigate="handleNavigate"
+            @pagar="(datos) => { transaccionActiva = datos; currentView = 'pago'; }"
+            :userCi="userProfile.ci ? Number(userProfile.ci) : null"
+          />
+        </main>
+      </template>
+
+      <template v-else-if="currentView === 'cuentas'">
+        <main class="dynamic-full-content">
+          <EstadoCuentaView :userCi="userProfile.ci ? Number(userProfile.ci) : null" />
+        </main>
+      </template>
+
+      <template v-else-if="currentView === 'perfil'">
         <main class="dynamic-full-content">
           <div class="profile-main-view">
             <h2>Perfil Principal</h2>
@@ -208,7 +244,10 @@
 
       <template v-else-if="currentView === 'reservaciones'">
         <main class="dynamic-full-content">
-          <Reservation @solicitarPagoProcesado="handleFlujoPagoTransaccion" />
+          <Reservation
+            :servicioReserva="recursoReservaActivo"
+            @solicitarPagoProcesado="handleFlujoPagoTransaccion"
+          />
         </main>
       </template>
 
@@ -228,6 +267,30 @@
               <button class="btn-guardar-reserva" @click="irAPagoProvisional" style="background-color:#2cb5e8;">Ir a Pago (provisional)</button>
             </div>
           </div>
+        </main>
+      </template>
+
+      <template v-else-if="currentView === 'bolsa'">
+        <main class="dynamic-full-content">
+          <BolsaTrabajoView />
+        </main>
+      </template>
+
+      <template v-else-if="currentView === 'viajes'">
+        <main class="dynamic-full-content">
+          <TravelView />
+        </main>
+      </template>
+
+      <template v-else-if="currentView === 'tai'">
+        <main class="dynamic-full-content">
+          <TAIDetailView :userCi="userProfile.ci ? Number(userProfile.ci) : null" />
+        </main>
+      </template>
+
+      <template v-else-if="currentView === 'familiares'">
+        <main class="dynamic-full-content">
+          <FamiliaresView :userCi="userProfile.ci ? Number(userProfile.ci) : null" />
         </main>
       </template>
 
@@ -294,10 +357,17 @@ import { useRouter } from 'vue-router';
 import { getAuthUser, clearAuthUser, closeLatestSession, closeLatestSessionOnUnload } from '../services/authService';
 import Reservation from './Reservation.vue';
 import Payments from './Payments.vue';
+import CatalogView from './CatalogView.vue';
+import EstadoCuentaView from './EstadoCuentaView.vue';
+import TravelView from './TravelView.vue';
+import TAIDetailView from './TAIDetailView.vue';
+import FamiliaresView from './FamiliaresView.vue';
+import BolsaTrabajoView from './BolsaTrabajoView.vue';
 
 const currentView = ref('feed');
 const searchQuery = ref('');
 const transaccionActiva = ref(null);
+const recursoReservaActivo = ref(null);
 const avatarInputRef = ref(null);
 const router = useRouter();
 
@@ -457,6 +527,16 @@ const logout = async () => {
 
 const handleBeforeUnload = () => {
   closeLatestSessionOnUnload(userProfile.value.ci);
+};
+
+const handleNavigate = (data) => {
+  if (typeof data === 'object') {
+    recursoReservaActivo.value = data.servicio || null;
+    currentView.value = data.view;
+  } else {
+    recursoReservaActivo.value = null;
+    currentView.value = data;
+  }
 };
 
 const handleFlujoPagoTransaccion = (datosRecibidos) => {

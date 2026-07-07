@@ -1,5 +1,24 @@
 <script setup>
-import { ref, watch } from 'vue';
+import { ref, watch, onMounted } from 'vue';
+
+const props = defineProps({
+  servicioReserva: {
+    type: Object,
+    default: null
+  }
+});
+
+const recursosDisponibles = ref([
+  { value: 'Mesa de tenis #2', label: 'Mesa de tenis #2' },
+  { value: 'Lab. Fabricación Digital', label: 'Lab. Fabricación Digital' },
+  { value: 'Cancha de Baloncesto', label: 'Cancha de Baloncesto' }
+]);
+
+const getTitulo = (servicio) => {
+  if (!servicio.descripcion) return servicio.nombreCategoria;
+  const parts = servicio.descripcion.split('.');
+  return parts[0].trim();
+};
 
 // 1. Base de datos simulada de Beneficiarios
 const misBeneficiariosRegistrados = ref([
@@ -9,7 +28,7 @@ const misBeneficiariosRegistrados = ref([
 
 // 2. Estados del formulario alineados a tu diseño
 const categoriaEspacio = ref('Área deportiva');
-const recursoEspecifico = ref('Mesa de tenis #2');
+const recursoEspecifico = ref(recursosDisponibles.value[0].value);
 const llevaEquipamiento = ref(false);
 const llevaAcompanante = ref(false);
 const fechaHora = ref('17/06/26 10:00 am- 12:00pm');
@@ -36,7 +55,28 @@ watch(beneficiarioSeleccionado, (nuevoId) => {
   }
 });
 
-// 4. EMIT: Envío de datos al componente Padre (MainView)
+// 4. Auto-fill desde el servicio seleccionado en el catálogo
+onMounted(() => {
+  if (props.servicioReserva) {
+    const s = props.servicioReserva;
+    if (s.nombreCategoria === 'Laboratorios' || s.nombreCategoria === 'Área deportiva' || s.nombreCategoria === 'Auditorios') {
+      categoriaEspacio.value = s.nombreCategoria;
+    }
+    const titulo = getTitulo(s);
+    const match = recursosDisponibles.value.find(r =>
+      titulo.toLowerCase().includes(r.value.toLowerCase()) ||
+      r.value.toLowerCase().includes(titulo.toLowerCase())
+    );
+    if (match) {
+      recursoEspecifico.value = match.value;
+    } else {
+      recursosDisponibles.value.push({ value: titulo, label: titulo });
+      recursoEspecifico.value = titulo;
+    }
+  }
+});
+
+// 5. EMIT: Envío de datos al componente Padre (MainView)
 const emit = defineEmits(['solicitarPagoProcesado']); 
 
 const procesarReserva = () => {
@@ -73,9 +113,7 @@ const procesarReserva = () => {
         <div class="form-group">
           <label>Recurso específico</label>
           <select v-model="recursoEspecifico" class="custom-select">
-            <option value="Mesa de tenis #2">Mesa de tenis #2</option>
-            <option value="Lab. Fabricación Digital">Lab. Fabricación Digital</option>
-            <option value="Cancha de Baloncesto">Cancha de Baloncesto</option>
+            <option v-for="r in recursosDisponibles" :key="r.value" :value="r.value">{{ r.label }}</option>
           </select>
         </div>
 
@@ -129,13 +167,13 @@ const procesarReserva = () => {
           <label>Cedula</label>
           <input type="text" v-model="acompanante.cedula" :disabled="!llevaAcompanante" class="custom-input" placeholder="Ej. V-00000000" />
         </div>
-
-        <div class="action-container-right">
-          <button @click="procesarReserva" class="btn-guardar-reserva">
-            Guardar reserva
-          </button>
-        </div>
       </div>
+    </div>
+
+    <div class="action-container-bottom">
+      <button @click="procesarReserva" class="btn-guardar-reserva">
+        Guardar reserva
+      </button>
     </div>
   </div>
 </template>
@@ -268,6 +306,12 @@ const procesarReserva = () => {
 
 .animate-fade {
   animation: fadeIn 0.3s ease-in;
+}
+
+.action-container-bottom {
+  margin-top: 30px;
+  display: flex;
+  justify-content: flex-end;
 }
 
 @keyframes fadeIn {
