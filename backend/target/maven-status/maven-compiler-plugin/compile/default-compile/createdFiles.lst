@@ -1,6 +1,7 @@
 com\ucab\services\repositories\TramiteRepository.class
 com\ucab\services\controllers\ViajeController.class
 com\ucab\services\models\TramiteId.class
+com\ucab\services\controllers\PaymentController.class
 com\ucab\services\controllers\TAIController.class
 com\ucab\services\models\Servicio.class
 com\ucab\services\controllers\DatabaseExplorerController$ColumnInfo.class

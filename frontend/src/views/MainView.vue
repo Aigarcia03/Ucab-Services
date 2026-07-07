@@ -193,7 +193,7 @@
       </template>
       <template v-else-if="currentView === 'feed'">
         <main class="feed-content">
-          <article v-for="post in feedPosts" :key="post.id" class="post-card">
+          <article v-for="post in feedPosts" :key="'p' + post.id" class="post-card">
             <header class="post-header">
               <div class="post-author-info">
                 <div class="author-logo" :class="post.logoBgClass">
@@ -209,6 +209,32 @@
             <div class="post-body">
               <h4 class="post-title">{{ post.title }}</h4>
               <p class="post-description">{{ post.description }}</p>
+            </div>
+          </article>
+
+          <article v-for="(o, i) in oportunidades" :key="'b' + i" class="post-card">
+            <header class="post-header">
+              <div class="post-author-info">
+                <div class="author-logo green-bg">
+                  <span style="color: white; font-weight: bold; font-size: 20px;">{{ o.razonsocial ? o.razonsocial.charAt(0) : 'E' }}</span>
+                </div>
+                <div>
+                  <h3 class="author-name">{{ o.razonsocial || 'Empresa' }}</h3>
+                  <p class="author-subtitle">Oferta laboral</p>
+                </div>
+              </div>
+            </header>
+            <div class="post-body">
+              <h4 class="post-title">{{ o.cargo }}</h4>
+              <p class="post-description">{{ o.perfilbuscado }}</p>
+              <div v-if="o.responsabilidades || o.beneficios" class="post-extras">
+                <div v-if="o.responsabilidades" class="extra-line"><span class="label">Responsabilidades:</span> {{ o.responsabilidades }}</div>
+                <div v-if="o.beneficios" class="extra-line"><span class="label">Beneficios:</span> {{ o.beneficios }}</div>
+              </div>
+            </div>
+            <div class="post-footer">
+              <span class="tag-status" :class="o.estatusvacante">{{ o.estatusvacante }}</span>
+              <span class="post-date">{{ formatFechaOferta(o.fechahoraoferta) }}</span>
             </div>
           </article>
         </main>
@@ -390,6 +416,7 @@ const userProfile = ref({
 });
 const feedPosts = ref([]);
 const jobOffers = ref([]);
+const oportunidades = ref([]);
 const tables = ref([]);
 const selectedTable = ref(null);
 const columns = ref([]);
@@ -411,6 +438,20 @@ const mockController = {
     ];
   }
 };
+
+const formatFechaOferta = (f) => {
+  if (!f) return '—';
+  return new Date(f).toLocaleString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
+};
+
+async function cargarOportunidades() {
+  try {
+    const res = await fetch('/api/bolsa/oportunidades');
+    if (res.ok) oportunidades.value = await res.json();
+  } catch (e) {
+    console.error('Error cargando ofertas del feed', e);
+  }
+}
 
 async function loadTables() {
   try {
@@ -511,6 +552,7 @@ onMounted(() => {
   loadUserProfile(authUser);
   feedPosts.value = mockController.fetchFeedPosts();
   jobOffers.value = mockController.fetchJobOffers();
+  cargarOportunidades();
   loadTables();
 });
 
@@ -984,6 +1026,16 @@ const handleMoreInfo = (company) => console.log('Más info de:', company);
 .profile-actions .btn-action {
   min-width: 160px;
 }
+
+.author-logo.green-bg { background-color: #1b7a3d; }
+.post-extras { margin-top: 10px; padding-top: 10px; border-top: 1px solid #eef2ee; }
+.extra-line { font-size: 0.88rem; margin-bottom: 4px; color: #334155; }
+.extra-line .label { font-weight: 600; color: #173a2e; }
+.post-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 12px; padding-top: 10px; border-top: 1px solid #eef2ee; }
+.post-date { font-size: 0.8rem; color: #666; }
+.tag-status { padding: 3px 12px; border-radius: 12px; font-size: 0.8rem; font-weight: 700; }
+.tag-status.disponible { background: #dcedc8; color: #33691e; }
+.tag-status.ocupada { background: #fce4ec; color: #c62828; }
 
 @media (max-width: 1024px) {
   .profile-header-grid,
