@@ -1,0 +1,211 @@
+<jasperReport name="ReporteTAI" language="java" pageWidth="595" pageHeight="842" whenNoDataType="AllSectionsNoDetail" columnWidth="555" leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20" uuid="9bc4eaca-daa6-47c6-985c-7c8f5c8853db">
+	<property name="com.jaspersoft.studio.data.sql.tables" value=""/>
+	<property name="com.jaspersoft.studio.data.defaultdataadapter" value="proyecto_ucab"/>
+	<parameter name="Sede" class="java.lang.String">
+		<defaultValueExpression><![CDATA["TODAS"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="Movimientos" class="java.lang.String">
+		<defaultValueExpression><![CDATA["Todos"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="IDUsuario" class="java.lang.String">
+		<defaultValueExpression><![CDATA["TODOS"]]></defaultValueExpression>
+	</parameter>
+	<query language="SQL"><![CDATA[WITH Movimientos AS (
+    SELECT
+        tai.pos,
+        tai.fechahorapago,
+        m.ci AS usuario,
+        mp.montorecibido::FLOAT AS monto_bruto,
+        CASE tai.pos
+            WHEN 1 THEN 'Caja'
+            WHEN 2 THEN 'Feria'
+            WHEN 3 THEN 'Centro de copiado'
+            WHEN 4 THEN 'Cafetín'
+            ELSE 'POS ' || tai.pos
+        END AS lugar
+    FROM TAI tai
+    JOIN PagoPresencial pp ON tai.idpresencial = pp.idpresencial
+    JOIN MetodoPago    mp ON pp.idmetodo       = mp.idmetodo
+    JOIN Paga          pg ON mp.idmetodo       = pg.idmetodo
+    JOIN Miembro        m ON pg.idcomprador     = m.idcomprador
+),
+Tipificado AS (
+    SELECT mv.*,
+        CASE WHEN mv.lugar = 'Caja' THEN 'Recarga' ELSE 'Consumo' END AS tipo,
+        CASE WHEN mv.lugar = 'Caja' THEN mv.monto_bruto ELSE -mv.monto_bruto END AS monto_signed
+    FROM Movimientos mv
+),
+Numerado AS (
+    SELECT t.*,
+        (5000 + ROW_NUMBER() OVER (ORDER BY t.fechahorapago, t.pos)) AS nro_tx,
+        SUM(t.monto_signed) OVER (
+            PARTITION BY t.usuario
+            ORDER BY t.fechahorapago, t.pos
+            ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+        ) AS saldo_resultante
+    FROM Tipificado t
+),
+Totales AS (
+    SELECT
+        COALESCE(SUM(monto_signed), 0.0)::FLOAT AS saldo_circulante,
+        COALESCE(SUM(monto_bruto) FILTER (WHERE tipo = 'Recarga'), 0.0)::FLOAT AS total_recargado,
+        (SELECT lugar FROM Tipificado WHERE tipo = 'Consumo' GROUP BY lugar ORDER BY COUNT(*) DESC, lugar LIMIT 1) AS punto_activo
+    FROM Tipificado
+)
+SELECT
+    ('TAI-' || n.nro_tx)  AS transaccion,
+    ('V-'   || n.usuario) AS usuario,
+    n.fechahorapago,
+    n.tipo,
+    n.lugar,
+    n.monto_signed        AS monto,
+    n.saldo_resultante,
+    tt.saldo_circulante,
+    tt.total_recargado,
+    COALESCE(tt.punto_activo, 'N/A') AS punto_activo
+FROM Numerado n
+CROSS JOIN Totales tt
+WHERE ($P{Movimientos} = 'Todos' OR n.tipo = $P{Movimientos})
+  AND ($P{IDUsuario}   = 'TODOS' OR CAST(n.usuario AS VARCHAR) = $P{IDUsuario})
+ORDER BY n.fechahorapago ASC, n.pos ASC;]]></query>
+	<field name="transaccion" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="transaccion"/>
+		<property name="com.jaspersoft.studio.field.label" value="transaccion"/>
+	</field>
+	<field name="usuario" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="usuario"/>
+		<property name="com.jaspersoft.studio.field.label" value="usuario"/>
+	</field>
+	<field name="fechahorapago" class="java.sql.Timestamp">
+		<property name="com.jaspersoft.studio.field.name" value="fechahorapago"/>
+		<property name="com.jaspersoft.studio.field.label" value="fechahorapago"/>
+	</field>
+	<field name="tipo" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="tipo"/>
+		<property name="com.jaspersoft.studio.field.label" value="tipo"/>
+	</field>
+	<field name="lugar" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="lugar"/>
+		<property name="com.jaspersoft.studio.field.label" value="lugar"/>
+	</field>
+	<field name="monto" class="java.lang.Double">
+		<property name="com.jaspersoft.studio.field.name" value="monto"/>
+		<property name="com.jaspersoft.studio.field.label" value="monto"/>
+	</field>
+	<field name="saldo_resultante" class="java.lang.Double">
+		<property name="com.jaspersoft.studio.field.name" value="saldo_resultante"/>
+		<property name="com.jaspersoft.studio.field.label" value="saldo_resultante"/>
+	</field>
+	<field name="saldo_circulante" class="java.lang.Double">
+		<property name="com.jaspersoft.studio.field.name" value="saldo_circulante"/>
+		<property name="com.jaspersoft.studio.field.label" value="saldo_circulante"/>
+	</field>
+	<field name="total_recargado" class="java.lang.Double">
+		<property name="com.jaspersoft.studio.field.name" value="total_recargado"/>
+		<property name="com.jaspersoft.studio.field.label" value="total_recargado"/>
+	</field>
+	<field name="punto_activo" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="punto_activo"/>
+		<property name="com.jaspersoft.studio.field.label" value="punto_activo"/>
+	</field>
+	<background splitType="Stretch"/>
+	<title height="80" splitType="Stretch">
+		<element kind="rectangle" uuid="bca9d8f0-395b-452a-aff7-2bec0739e88a" x="0" y="0" width="555" height="45" backcolor="#027935"/>
+		<element kind="staticText" uuid="2d743986-d0c4-45de-99f2-da922753fca3" x="15" y="7" width="300" height="30" forecolor="#FFFFFF" fontSize="22.0" bold="true">
+			<text><![CDATA[UCAB Services]]></text>
+		</element>
+		<element kind="rectangle" uuid="b20a6fd2-9ce8-4ef8-bd2f-dc1f15fb7585" x="0" y="45" width="555" height="30" backcolor="#FFD033"/>
+		<element kind="staticText" uuid="20effb69-3144-47a8-8ae9-d7493e08f5ee" x="12" y="50" width="42" height="20" fontSize="11.0" bold="true">
+			<text><![CDATA[Sede:]]></text>
+		</element>
+		<element kind="textField" uuid="22ea17c4-327a-4fde-8d37-f0b60fc7df10" x="54" y="50" width="90" height="20" fontSize="11.0">
+			<expression><![CDATA[$P{Sede}]]></expression>
+		</element>
+		<element kind="staticText" uuid="f8f451d5-0896-43c1-bb3e-a57c4c785574" x="165" y="50" width="95" height="20" fontSize="11.0" bold="true">
+			<text><![CDATA[Movimientos:]]></text>
+		</element>
+		<element kind="textField" uuid="a1957fae-4650-48c9-bfc3-0d68d19b4396" x="260" y="50" width="80" height="20" fontSize="11.0">
+			<expression><![CDATA[$P{Movimientos}]]></expression>
+		</element>
+		<element kind="staticText" uuid="26b8e7f1-9cdc-4fd3-9847-15b20db96b48" x="355" y="50" width="72" height="20" fontSize="11.0" bold="true">
+			<text><![CDATA[ID usuario:]]></text>
+		</element>
+		<element kind="textField" uuid="d46415c9-c8da-4566-a799-c7cf5de45496" x="427" y="50" width="120" height="20" fontSize="11.0">
+			<expression><![CDATA[$P{IDUsuario}]]></expression>
+		</element>
+	</title>
+	<pageHeader height="55" splitType="Stretch">
+		<element kind="rectangle" uuid="a254099a-3ff4-4836-835e-d363a3af526d" x="0" y="8" width="555" height="40" backcolor="#0C578E"/>
+		<element kind="staticText" uuid="71afba99-d5dd-4c66-9b79-92313993f81d" x="6" y="18" width="95" height="20" forecolor="#FFFFFF" fontSize="9.0" bold="true" vTextAlign="Middle">
+			<text><![CDATA[Saldo Circulante:]]></text>
+		</element>
+		<element kind="textField" uuid="da0037da-d84c-4642-a16b-4cb501ac8eab" x="101" y="18" width="70" height="20" forecolor="#FFFFFF" fontSize="9.0" vTextAlign="Middle">
+			<expression><![CDATA[$F{saldo_circulante} == null ? "$0.00" : "$" + new java.text.DecimalFormat("#,##0.00").format($F{saldo_circulante})]]></expression>
+		</element>
+		<element kind="staticText" uuid="a611291c-d8af-4526-9ca9-ff35d1e676d7" x="180" y="18" width="95" height="20" forecolor="#FFFFFF" fontSize="9.0" bold="true" vTextAlign="Middle">
+			<text><![CDATA[Total Recargado:]]></text>
+		</element>
+		<element kind="textField" uuid="17327228-6c51-4c87-a990-3908a9c6f848" x="275" y="18" width="70" height="20" forecolor="#FFFFFF" fontSize="9.0" vTextAlign="Middle">
+			<expression><![CDATA[$F{total_recargado} == null ? "$0.00" : "$" + new java.text.DecimalFormat("#,##0.00").format($F{total_recargado})]]></expression>
+		</element>
+		<element kind="staticText" uuid="2262ca9d-a31a-47d6-95f1-06a35ba76247" x="352" y="18" width="118" height="20" forecolor="#FFFFFF" fontSize="9.0" bold="true" vTextAlign="Middle">
+			<text><![CDATA[Punto de Consumo Más Activo:]]></text>
+		</element>
+		<element kind="textField" uuid="82a18c2e-8c28-4fd0-a59b-4627c486974a" x="470" y="18" width="80" height="20" forecolor="#FFFFFF" fontSize="9.0" vTextAlign="Middle">
+			<expression><![CDATA[$F{punto_activo} == null ? "N/A" : $F{punto_activo}]]></expression>
+		</element>
+	</pageHeader>
+	<columnHeader height="30" splitType="Stretch">
+		<element kind="staticText" uuid="c46eb219-bf0b-4c20-8122-77da4f59190b" x="0" y="5" width="72" height="20" fontSize="9.0" bold="true" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[TRANSACCIÓN]]></text>
+		</element>
+		<element kind="staticText" uuid="db351c20-208d-43cb-8bee-080154e5ca89" x="72" y="5" width="82" height="20" fontSize="9.0" bold="true" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[USUARIO]]></text>
+		</element>
+		<element kind="staticText" uuid="3fa5c0a4-0202-4544-8d1c-46f67c73daa1" x="154" y="5" width="105" height="20" fontSize="9.0" bold="true" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[FECHA Y HORA]]></text>
+		</element>
+		<element kind="staticText" uuid="f1a4f7fd-1916-482e-ba85-a8fcb18a1448" x="259" y="5" width="66" height="20" fontSize="9.0" bold="true" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[TIPO]]></text>
+		</element>
+		<element kind="staticText" uuid="62c3c058-fb45-44c9-b3f5-da1b7d848b72" x="325" y="5" width="105" height="20" fontSize="9.0" bold="true" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[LUGAR]]></text>
+		</element>
+		<element kind="staticText" uuid="cf0288f7-54b5-4fa6-8002-8971c4d46c09" x="430" y="5" width="60" height="20" fontSize="9.0" bold="true" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[MONTO]]></text>
+		</element>
+		<element kind="staticText" uuid="75a4f7c6-4dbe-4283-840a-48e0216ea854" x="490" y="5" width="65" height="20" fontSize="9.0" bold="true" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[SALDO RESULT.]]></text>
+		</element>
+	</columnHeader>
+	<detail>
+		<band height="28" splitType="Stretch">
+			<element kind="textField" uuid="2df2dd49-b763-4d1f-afd8-1932835d5ebd" x="0" y="2" width="72" height="24" fontSize="8.0" hTextAlign="Center" vTextAlign="Middle">
+				<expression><![CDATA[$F{transaccion}]]></expression>
+			</element>
+			<element kind="textField" uuid="6dbed294-847d-466b-ad18-3d6f889ebf88" x="72" y="2" width="82" height="24" fontSize="8.0" hTextAlign="Center" vTextAlign="Middle">
+				<expression><![CDATA[$F{usuario}]]></expression>
+			</element>
+			<element kind="textField" uuid="64f621e6-e342-4cbe-a21e-09d47aa2dc0d" x="154" y="2" width="105" height="24" fontSize="8.0" pattern="dd/MM/yy hh:mm a" hTextAlign="Center" vTextAlign="Middle">
+				<expression><![CDATA[$F{fechahorapago}]]></expression>
+			</element>
+			<element kind="textField" uuid="6e54a6b5-a01a-4015-ba16-c8eeb460eb9f" x="259" y="2" width="66" height="24" fontSize="8.0" hTextAlign="Center" vTextAlign="Middle">
+				<expression><![CDATA[$F{tipo}]]></expression>
+			</element>
+			<element kind="textField" uuid="20251e2f-cdcb-47dc-98e1-88900d5e20f4" x="325" y="2" width="105" height="24" fontSize="8.0" hTextAlign="Center" vTextAlign="Middle">
+				<expression><![CDATA[$F{lugar}]]></expression>
+			</element>
+			<element kind="textField" uuid="8578920e-d5bd-4612-894f-bc4301bfdbbc" x="430" y="2" width="60" height="24" fontSize="8.0" hTextAlign="Center" vTextAlign="Middle">
+				<expression><![CDATA[($F{monto} >= 0 ? "+ $" : "- $") + new java.text.DecimalFormat("#,##0.00").format(Math.abs($F{monto}))]]></expression>
+			</element>
+			<element kind="textField" uuid="9ec4057d-7a71-45ea-8625-6571bde7bbde" x="490" y="2" width="65" height="24" fontSize="8.0" hTextAlign="Center" vTextAlign="Middle">
+				<expression><![CDATA["$ " + new java.text.DecimalFormat("#,##0.00").format($F{saldo_resultante})]]></expression>
+			</element>
+		</band>
+	</detail>
+	<pageFooter height="30" splitType="Stretch">
+		<element kind="textField" uuid="5e10344d-ab33-41ba-a033-2b281397758e" x="435" y="5" width="80" height="20" fontSize="10.0" hTextAlign="Right">
+			<expression><![CDATA["Página " + $V{PAGE_NUMBER}]]></expression>
+		</element>
+	</pageFooter>
+</jasperReport>

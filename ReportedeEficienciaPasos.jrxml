@@ -1,0 +1,185 @@
+<!-- Created with Jaspersoft Studio version 7.0.6.final using JasperReports Library version 7.0.6-5d2a603fdc6b3db8f842a83383e594f41891534d  -->
+<jasperReport name="ReportedeEficienciaPasos" language="java" pageWidth="595" pageHeight="842" whenNoDataType="AllSectionsNoDetail" columnWidth="555" leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20" uuid="b1ddef74-2796-4a6b-b996-66c2c0b83e7e">
+	<property name="com.jaspersoft.studio.data.sql.tables" value=""/>
+	<property name="com.jaspersoft.studio.data.defaultdataadapter" value="proyecto_ucab"/>
+	<parameter name="FechaInicioEficiencia" class="java.util.Date">
+		<defaultValueExpression><![CDATA[new java.text.SimpleDateFormat("yyyy-MM-dd").parse("2026-04-01")]]></defaultValueExpression>
+	</parameter>
+	<parameter name="FechaFinEficiencia" class="java.util.Date">
+		<description><![CDATA[new java.text.SimpleDateFormat("yyyy-MM-dd").parse("2026-05-15")]]></description>
+	</parameter>
+	<query language="SQL"><![CDATA[WITH Eficaz AS (
+    SELECT pa.ResponsableAsignado AS depto
+    FROM PasoActividad pa
+    WHERE pa.FechaInicio BETWEEN CAST($P{FechaInicioEficiencia} AS TIMESTAMP) AND CAST($P{FechaFinEficiencia} AS TIMESTAMP)
+      AND pa.DuracionReal IS NOT NULL
+    ORDER BY ((EXTRACT(EPOCH FROM pa.DuracionReal) / 86400.0) - (pa.DuracionEstimada / 1440.0)) ASC
+    LIMIT 1
+),
+Retraso AS (
+    SELECT pa.ResponsableAsignado AS depto
+    FROM PasoActividad pa
+    WHERE pa.FechaInicio BETWEEN CAST($P{FechaInicioEficiencia} AS TIMESTAMP) AND CAST($P{FechaFinEficiencia} AS TIMESTAMP)
+      AND pa.DuracionReal IS NOT NULL
+    ORDER BY ((EXTRACT(EPOCH FROM pa.DuracionReal) / 86400.0) - (pa.DuracionEstimada / 1440.0)) DESC
+    LIMIT 1
+)
+SELECT 
+    pa.OrdenSecuencial AS nro_tx,
+    t.Descripcion AS tip_tramite,
+    pa.ResponsableAsignado AS depto,
+    pa.FechaInicio AS fecha_inicio,
+    
+    ROUND((pa.DuracionEstimada / 1440.0)::NUMERIC, 1)::FLOAT AS tiempo_esperado,
+    ROUND((EXTRACT(EPOCH FROM pa.DuracionReal) / 86400.0)::NUMERIC, 1)::FLOAT AS tiempo_real,
+    ROUND(((EXTRACT(EPOCH FROM pa.DuracionReal) / 86400.0) - (pa.DuracionEstimada / 1440.0))::NUMERIC, 1)::FLOAT AS desviacion,
+    
+    CAST((SELECT depto FROM Eficaz) AS VARCHAR(100)) AS dpto_mas_eficaz,
+    CAST((SELECT depto FROM Retraso) AS VARCHAR(100)) AS dpto_mayor_retraso
+FROM Tramite t
+JOIN PasoActividad pa ON t.CI = pa.CI 
+    AND t.IDPrestadora = pa.IDPrestadora 
+    AND t.NombreCategoria = pa.NombreCategoria 
+    AND t.Descripcion = pa.Descripcion 
+    AND t.FechaCreacion = pa.FechaCreacion
+WHERE pa.FechaInicio BETWEEN CAST($P{FechaInicioEficiencia} AS TIMESTAMP) AND CAST($P{FechaFinEficiencia} AS TIMESTAMP)
+  AND pa.DuracionReal IS NOT NULL
+ORDER BY pa.FechaInicio ASC;]]></query>
+	<field name="nro_tx" class="java.lang.Integer">
+		<property name="com.jaspersoft.studio.field.name" value="nro_tx"/>
+		<property name="com.jaspersoft.studio.field.label" value="nro_tx"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="pasoactividad"/>
+	</field>
+	<field name="tip_tramite" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="tip_tramite"/>
+		<property name="com.jaspersoft.studio.field.label" value="tip_tramite"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="tramite"/>
+	</field>
+	<field name="depto" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="depto"/>
+		<property name="com.jaspersoft.studio.field.label" value="depto"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="pasoactividad"/>
+	</field>
+	<field name="fecha_inicio" class="java.sql.Date">
+		<property name="com.jaspersoft.studio.field.name" value="fecha_inicio"/>
+		<property name="com.jaspersoft.studio.field.label" value="fecha_inicio"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="pasoactividad"/>
+	</field>
+	<field name="tiempo_esperado" class="java.lang.Double">
+		<property name="com.jaspersoft.studio.field.name" value="tiempo_esperado"/>
+		<property name="com.jaspersoft.studio.field.label" value="tiempo_esperado"/>
+	</field>
+	<field name="tiempo_real" class="java.lang.Double">
+		<property name="com.jaspersoft.studio.field.name" value="tiempo_real"/>
+		<property name="com.jaspersoft.studio.field.label" value="tiempo_real"/>
+	</field>
+	<field name="desviacion" class="java.lang.Double">
+		<property name="com.jaspersoft.studio.field.name" value="desviacion"/>
+		<property name="com.jaspersoft.studio.field.label" value="desviacion"/>
+	</field>
+	<field name="dpto_mas_eficaz" class="java.lang.Object">
+		<property name="com.jaspersoft.studio.field.name" value="dpto_mas_eficaz"/>
+		<property name="com.jaspersoft.studio.field.label" value="dpto_mas_eficaz"/>
+	</field>
+	<field name="dpto_mayor_retraso" class="java.lang.Object">
+		<property name="com.jaspersoft.studio.field.name" value="dpto_mayor_retraso"/>
+		<property name="com.jaspersoft.studio.field.label" value="dpto_mayor_retraso"/>
+	</field>
+	<variable name="TiempoPromedio" calculation="Average" class="java.lang.Double">
+		<expression><![CDATA[$F{tiempo_real}]]></expression>
+	</variable>
+	<background splitType="Stretch"/>
+	<title height="90" splitType="Stretch">
+		<element kind="rectangle" uuid="9deedd25-a933-4629-93d6-21afc7821eba" x="0" y="0" width="555" height="45" backcolor="#027935"/>
+		<element kind="staticText" uuid="ba0bba14-53ab-48e0-b149-6418c6d67184" x="15" y="7" width="230" height="30" forecolor="#FFFFFF" fontSize="22.0" bold="true">
+			<text><![CDATA[UCAB Services]]></text>
+		</element>
+		<element kind="rectangle" uuid="cf2f8bef-2f30-4e32-b84f-b0b0944a7348" x="0" y="45" width="555" height="35" backcolor="#FFD033"/>
+		<element kind="staticText" uuid="f66a8e3a-a965-420b-9bfd-5b4a1a76538a" x="15" y="52" width="90" height="20" fontSize="12.0" bold="true">
+			<text><![CDATA[Fecha Inicio:]]></text>
+		</element>
+		<element kind="textField" uuid="1e2730d2-03de-4971-8842-0abdf46daa62" x="105" y="52" width="150" height="20" fontSize="12.0">
+			<expression><![CDATA[new SimpleDateFormat("dd/MM/yyyy").format($P{FechaInicioEficiencia})]]></expression>
+		</element>
+		<element kind="staticText" uuid="e67fb32c-425b-4a1a-8783-7c1848db15bf" x="290" y="52" width="80" height="20" fontSize="12.0" bold="true">
+			<text><![CDATA[Fecha Fin:]]></text>
+		</element>
+		<element kind="textField" uuid="2a0cc7f9-1c0f-4521-9f03-b240ce6e89db" x="370" y="52" width="150" height="20" fontSize="12.0">
+			<expression><![CDATA[new SimpleDateFormat("dd/MM/yyyy").format($P{FechaFinEficiencia})]]></expression>
+		</element>
+	</title>
+	<pageHeader height="55" splitType="Stretch">
+		<element kind="rectangle" uuid="06e4a083-6243-46a0-b9c0-264ccc16fb3a" x="0" y="8" width="555" height="40" backcolor="#0C578E"/>
+		<element kind="staticText" uuid="9e29a8c9-0a78-4c3f-abe8-dffc4309740a" x="8" y="18" width="105" height="20" forecolor="#FFFFFF" fontSize="11.0" bold="true" vTextAlign="Middle">
+			<text><![CDATA[Tiempo Promedio:]]></text>
+		</element>
+		<element kind="textField" uuid="0f00b8a9-f11b-40e3-89bc-fc62f8f4c706" x="113" y="18" width="60" height="20" forecolor="#FFFFFF" fontSize="11.0" vTextAlign="Middle">
+			<expression><![CDATA[$V{TiempoPromedio} + " días"]]></expression>
+		</element>
+		<element kind="staticText" uuid="a7694095-d736-47b8-9298-4e12bea01920" x="178" y="18" width="105" height="20" forecolor="#FFFFFF" fontSize="11.0" bold="true" vTextAlign="Middle">
+			<text><![CDATA[Dpto mas eficaz:]]></text>
+		</element>
+		<element kind="textField" uuid="aa0b027e-d140-4a08-8868-6b7903927fae" x="283" y="18" width="90" height="20" forecolor="#FFFFFF" fontSize="11.0" vTextAlign="Middle">
+			<expression><![CDATA[String.valueOf($F{dpto_mas_eficaz})]]></expression>
+		</element>
+		<element kind="staticText" uuid="d93e03fb-865c-4e84-a97e-797a8bb7119c" x="378" y="18" width="110" height="20" forecolor="#FFFFFF" fontSize="11.0" bold="true" vTextAlign="Middle">
+			<text><![CDATA[Dpto mas retraso:]]></text>
+		</element>
+		<element kind="textField" uuid="02e2002c-0d17-42ef-8b94-1717efa51d7b" x="488" y="18" width="62" height="20" forecolor="#FFFFFF" fontSize="11.0" vTextAlign="Middle">
+			<expression><![CDATA[String.valueOf($F{dpto_mayor_retraso})]]></expression>
+		</element>
+	</pageHeader>
+	<columnHeader height="30" splitType="Stretch">
+		<element kind="staticText" uuid="1bb12f67-8988-4df5-b9a9-1c9efb32eb04" x="0" y="5" width="45" height="20" fontSize="11.0" bold="true" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[No TX]]></text>
+		</element>
+		<element kind="staticText" uuid="c6aa7891-e7ee-4563-bc45-e3d98d26e4ce" x="45" y="5" width="110" height="20" fontSize="11.0" bold="true" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[TIPO TRAMITE]]></text>
+		</element>
+		<element kind="staticText" uuid="74555197-015a-400c-ab1d-14e6bff391d7" x="155" y="5" width="85" height="20" fontSize="11.0" bold="true" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[DEPTO]]></text>
+		</element>
+		<element kind="staticText" uuid="a5c4a057-5930-413d-94e1-0744c10706ca" x="240" y="5" width="80" height="20" fontSize="11.0" bold="true" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[FECHA INICIO]]></text>
+		</element>
+		<element kind="staticText" uuid="edbbbabd-d2a2-479e-83b7-0123b8c46889" x="320" y="5" width="85" height="20" fontSize="11.0" bold="true" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[TIEMPO ESP.]]></text>
+		</element>
+		<element kind="staticText" uuid="4abe28ee-51db-4fb8-92ca-1f0c1444c437" x="400" y="5" width="80" height="20" fontSize="11.0" bold="true" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[TIEMPO REAL]]></text>
+		</element>
+		<element kind="staticText" uuid="f4243ac5-61ca-4220-ab9a-18868e7400e2" x="480" y="5" width="75" height="20" fontSize="11.0" bold="true" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[DESVIACION]]></text>
+		</element>
+	</columnHeader>
+	<detail>
+		<band height="25" splitType="Stretch">
+			<element kind="textField" uuid="2271dd66-cca9-45cf-ba0b-d254295f0c62" x="0" y="2" width="45" height="20" fontSize="10.0" hTextAlign="Center" vTextAlign="Middle">
+				<expression><![CDATA[$F{nro_tx}]]></expression>
+			</element>
+			<element kind="textField" uuid="b3ff78f6-0eab-4c17-b798-3a70bbb3d741" x="45" y="2" width="110" height="20" fontSize="10.0" hTextAlign="Center" vTextAlign="Middle">
+				<expression><![CDATA[$F{tip_tramite}]]></expression>
+			</element>
+			<element kind="textField" uuid="8aa5d8c7-c1ae-4098-9fd5-267dbea2bf14" x="155" y="2" width="85" height="20" fontSize="10.0" hTextAlign="Center" vTextAlign="Middle">
+				<expression><![CDATA[$F{depto}]]></expression>
+			</element>
+			<element kind="textField" uuid="190b7a1f-3a91-4fe6-b608-deee9741efb9" x="240" y="2" width="80" height="20" fontSize="10.0" pattern="dd/MM/yyyy" hTextAlign="Center" vTextAlign="Middle">
+				<expression><![CDATA[$F{fecha_inicio}]]></expression>
+			</element>
+			<element kind="textField" uuid="539c04e9-b504-4581-bec3-53fc16b4ed24" x="320" y="2" width="85" height="20" fontSize="10.0" hTextAlign="Center" vTextAlign="Middle">
+				<expression><![CDATA[$F{tiempo_esperado} + " días"]]></expression>
+			</element>
+			<element kind="textField" uuid="dfe36968-ff50-4056-9e2f-cee26144ff5d" x="405" y="2" width="75" height="20" fontSize="10.0" hTextAlign="Center" vTextAlign="Middle">
+				<expression><![CDATA[$F{tiempo_real} + " días"]]></expression>
+			</element>
+			<element kind="textField" uuid="08d6d17b-a305-4fe2-9b1c-b35c059907e5" x="480" y="2" width="75" height="20" fontSize="10.0" hTextAlign="Center" vTextAlign="Middle">
+				<expression><![CDATA[($F{desviacion}.doubleValue() >= 0 ? "+" : "") + $F{desviacion} + " días"]]></expression>
+			</element>
+		</band>
+	</detail>
+	<pageFooter height="30" splitType="Stretch">
+		<element kind="textField" uuid="c1a2b3d4-0000-4000-8000-000000000001" x="435" y="5" width="80" height="20" fontSize="10.0" hTextAlign="Right">
+			<expression><![CDATA["Página " + $V{PAGE_NUMBER}]]></expression>
+		</element>
+	</pageFooter>
+</jasperReport>

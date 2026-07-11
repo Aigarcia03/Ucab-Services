@@ -1,0 +1,179 @@
+<!-- Created with Jaspersoft Studio version 7.0.6.final using JasperReports Library version 7.0.6-5d2a603fdc6b3db8f842a83383e594f41891534d  -->
+<jasperReport name="ReportedeConciliacion" language="java" pageWidth="595" pageHeight="842" whenNoDataType="AllSectionsNoDetail" columnWidth="555" leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20" uuid="b1ddef74-2796-4a6b-b996-66c2c0b83e7e">
+	<property name="com.jaspersoft.studio.data.sql.tables" value=""/>
+	<property name="com.jaspersoft.studio.data.defaultdataadapter" value="proyecto_ucab"/>
+	<parameter name="FechaInicio" class="java.sql.Date">
+		<defaultValueExpression><![CDATA[java.sql.Date.valueOf("2026-01-01")]]></defaultValueExpression>
+	</parameter>
+	<parameter name="FechaFin" class="java.sql.Date">
+		<defaultValueExpression><![CDATA[java.sql.Date.valueOf("2026-12-31")]]></defaultValueExpression>
+	</parameter>
+	<query language="SQL"><![CDATA[WITH Base AS (
+    SELECT
+        mp.idmetodo,
+        mp.fechahoravigencia::date          AS fecha,
+        f.montoacumulado::FLOAT             AS monto_decla,
+        mp.montorecibido::FLOAT            AS monto_confir,
+        (f.montoacumulado - mp.montorecibido)::FLOAT AS diferencia
+    FROM MetodoPago mp
+    JOIN Paga    pg ON mp.idmetodo    = pg.idmetodo
+    JOIN Factura f  ON pg.numerofactura = f.numero
+    WHERE f.fechahoraemision::date BETWEEN $P{FechaInicio} AND $P{FechaFin}
+),
+Totales AS (
+    SELECT
+        COALESCE(SUM(monto_decla),  0.0)::FLOAT AS total_declarado,
+        COALESCE(SUM(monto_confir), 0.0)::FLOAT AS total_confirmado,
+        COALESCE(SUM(diferencia),   0.0)::FLOAT AS total_diferencia
+    FROM Base
+)
+SELECT
+    b.idmetodo AS nro_tx,
+    b.fecha    AS fecha,
+    CASE
+        WHEN EXISTS (SELECT 1 FROM PagoPresencial pp JOIN PagoMovil pm ON pp.idpresencial = pm.idpresencial WHERE pp.idmetodo = b.idmetodo) THEN 'Pago Movil'
+        WHEN EXISTS (SELECT 1 FROM PagoPresencial pp JOIN Tarjeta   ta ON pp.idpresencial = ta.idpresencial WHERE pp.idmetodo = b.idmetodo) THEN 'Tarjeta'
+        WHEN EXISTS (SELECT 1 FROM PagoPresencial pp JOIN TAI       ti ON pp.idpresencial = ti.idpresencial WHERE pp.idmetodo = b.idmetodo) THEN 'TAI'
+        WHEN EXISTS (SELECT 1 FROM PagoPresencial pp JOIN Efectivo  ef ON pp.idpresencial = ef.idpresencial WHERE pp.idmetodo = b.idmetodo) THEN 'Efectivo'
+        WHEN EXISTS (SELECT 1 FROM TransaccionEnLinea tl JOIN Criptomoneda cr ON tl.idlinea = cr.idlinea WHERE tl.idmetodo = b.idmetodo) THEN 'Criptomoneda'
+        WHEN EXISTS (SELECT 1 FROM TransaccionEnLinea tl JOIN Zelle        ze ON tl.idlinea = ze.idlinea WHERE tl.idmetodo = b.idmetodo) THEN 'Zelle'
+        WHEN EXISTS (SELECT 1 FROM PagoPresencial    pp WHERE pp.idmetodo = b.idmetodo) THEN 'Presencial'
+        WHEN EXISTS (SELECT 1 FROM TransaccionEnLinea tl WHERE tl.idmetodo = b.idmetodo) THEN 'En Linea'
+        ELSE 'Otro'
+    END AS metodo,
+    b.monto_decla,
+    b.monto_confir,
+    b.diferencia,
+    t.total_declarado,
+    t.total_confirmado,
+    t.total_diferencia
+FROM Base b
+CROSS JOIN Totales t
+ORDER BY b.fecha ASC;]]></query>
+	<field name="nro_tx" class="java.lang.Integer">
+		<property name="com.jaspersoft.studio.field.name" value="nro_tx"/>
+		<property name="com.jaspersoft.studio.field.label" value="nro_tx"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="metodopago"/>
+	</field>
+	<field name="fecha" class="java.sql.Date">
+		<property name="com.jaspersoft.studio.field.name" value="fecha"/>
+		<property name="com.jaspersoft.studio.field.label" value="fecha"/>
+	</field>
+	<field name="metodo" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="metodo"/>
+		<property name="com.jaspersoft.studio.field.label" value="metodo"/>
+	</field>
+	<field name="monto_decla" class="java.lang.Double">
+		<property name="com.jaspersoft.studio.field.name" value="monto_decla"/>
+		<property name="com.jaspersoft.studio.field.label" value="monto_decla"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="factura"/>
+	</field>
+	<field name="monto_confir" class="java.lang.Double">
+		<property name="com.jaspersoft.studio.field.name" value="monto_confir"/>
+		<property name="com.jaspersoft.studio.field.label" value="monto_confir"/>
+	</field>
+	<field name="diferencia" class="java.lang.Double">
+		<property name="com.jaspersoft.studio.field.name" value="diferencia"/>
+		<property name="com.jaspersoft.studio.field.label" value="diferencia"/>
+	</field>
+	<field name="total_declarado" class="java.lang.Double">
+		<property name="com.jaspersoft.studio.field.name" value="total_declarado"/>
+		<property name="com.jaspersoft.studio.field.label" value="total_declarado"/>
+	</field>
+	<field name="total_confirmado" class="java.lang.Double">
+		<property name="com.jaspersoft.studio.field.name" value="total_confirmado"/>
+		<property name="com.jaspersoft.studio.field.label" value="total_confirmado"/>
+	</field>
+	<field name="total_diferencia" class="java.lang.Double">
+		<property name="com.jaspersoft.studio.field.name" value="total_diferencia"/>
+		<property name="com.jaspersoft.studio.field.label" value="total_diferencia"/>
+	</field>
+	<background splitType="Stretch"/>
+	<title height="90" splitType="Stretch">
+		<element kind="rectangle" uuid="9deedd25-a933-4629-93d6-21afc7821eba" x="0" y="0" width="555" height="45" backcolor="#027935"/>
+		<element kind="staticText" uuid="ba0bba14-53ab-48e0-b149-6418c6d67184" x="15" y="7" width="230" height="30" forecolor="#FFFFFF" fontSize="22.0" bold="true">
+			<text><![CDATA[UCAB Services]]></text>
+		</element>
+		<element kind="rectangle" uuid="cf2f8bef-2f30-4e32-b84f-b0b0944a7348" x="0" y="45" width="555" height="35" backcolor="#FFD033"/>
+		<element kind="staticText" uuid="f66a8e3a-a965-420b-9bfd-5b4a1a76538a" x="15" y="52" width="90" height="20" fontSize="12.0" bold="true">
+			<text><![CDATA[Fecha Inicio:]]></text>
+		</element>
+		<element kind="textField" uuid="1e2730d2-03de-4971-8842-0abdf46daa62" x="105" y="52" width="150" height="20" fontSize="12.0">
+			<expression><![CDATA[new SimpleDateFormat("dd/MM/yyyy").format($P{FechaInicio})]]></expression>
+		</element>
+		<element kind="staticText" uuid="e67fb32c-425b-4a1a-8783-7c1848db15bf" x="290" y="52" width="80" height="20" fontSize="12.0" bold="true">
+			<text><![CDATA[Fecha Fin:]]></text>
+		</element>
+		<element kind="textField" uuid="2a0cc7f9-1c0f-4521-9f03-b240ce6e89db" x="370" y="52" width="150" height="20" fontSize="12.0">
+			<expression><![CDATA[new SimpleDateFormat("dd/MM/yyyy").format($P{FechaFin})]]></expression>
+		</element>
+	</title>
+	<pageHeader height="55" splitType="Stretch">
+		<element kind="rectangle" uuid="06e4a083-6243-46a0-b9c0-264ccc16fb3a" x="0" y="8" width="555" height="40" backcolor="#0C578E"/>
+		<element kind="staticText" uuid="9e29a8c9-0a78-4c3f-abe8-dffc4309740a" x="10" y="18" width="95" height="20" forecolor="#FFFFFF" fontSize="11.0" bold="true" vTextAlign="Middle">
+			<text><![CDATA[Total Declarado:]]></text>
+		</element>
+		<element kind="textField" uuid="0f00b8a9-f11b-40e3-89bc-fc62f8f4c706" x="105" y="18" width="75" height="20" forecolor="#FFFFFF" fontSize="11.0" pattern="#,##0.00#;#,##0.00#-" vTextAlign="Middle">
+			<expression><![CDATA[$F{total_declarado} ]]></expression>
+		</element>
+		<element kind="staticText" uuid="a7694095-d736-47b8-9298-4e12bea01920" x="190" y="18" width="100" height="20" forecolor="#FFFFFF" fontSize="11.0" bold="true" vTextAlign="Middle">
+			<text><![CDATA[Total Confirmado:]]></text>
+		</element>
+		<element kind="textField" uuid="aa0b027e-d140-4a08-8868-6b7903927fae" x="290" y="18" width="75" height="20" forecolor="#FFFFFF" fontSize="11.0" pattern="#,##0.00#;#,##0.00#-" vTextAlign="Middle">
+			<expression><![CDATA[$F{total_confirmado}]]></expression>
+		</element>
+		<element kind="staticText" uuid="d93e03fb-865c-4e84-a97e-797a8bb7119c" x="375" y="18" width="95" height="20" forecolor="#FFFFFF" fontSize="11.0" bold="true" vTextAlign="Middle">
+			<text><![CDATA[Total Diferencia:]]></text>
+		</element>
+		<element kind="textField" uuid="02e2002c-0d17-42ef-8b94-1717efa51d7b" x="470" y="18" width="75" height="20" forecolor="#FFFFFF" fontSize="11.0" pattern="#,##0.00#;#,##0.00#-" vTextAlign="Middle">
+			<expression><![CDATA[$F{total_diferencia}]]></expression>
+		</element>
+	</pageHeader>
+	<columnHeader height="30" splitType="Stretch">
+		<element kind="staticText" uuid="1bb12f67-8988-4df5-b9a9-1c9efb32eb04" x="0" y="5" width="60" height="20" fontSize="11.0" bold="true" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[NRO TX]]></text>
+		</element>
+		<element kind="staticText" uuid="c6aa7891-e7ee-4563-bc45-e3d98d26e4ce" x="60" y="5" width="90" height="20" fontSize="11.0" bold="true" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[FECHA]]></text>
+		</element>
+		<element kind="staticText" uuid="74555197-015a-400c-ab1d-14e6bff391d7" x="150" y="5" width="95" height="20" fontSize="11.0" bold="true" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[METODO]]></text>
+		</element>
+		<element kind="staticText" uuid="a5c4a057-5930-413d-94e1-0744c10706ca" x="245" y="5" width="105" height="20" fontSize="11.0" bold="true" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[MONTO DECLA]]></text>
+		</element>
+		<element kind="staticText" uuid="edbbbabd-d2a2-479e-83b7-0123b8c46889" x="350" y="5" width="105" height="20" fontSize="11.0" bold="true" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[MONTO CONFIR]]></text>
+		</element>
+		<element kind="staticText" uuid="4abe28ee-51db-4fb8-92ca-1f0c1444c437" x="455" y="5" width="100" height="20" fontSize="11.0" bold="true" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[DIFERENCIA]]></text>
+		</element>
+	</columnHeader>
+	<detail>
+		<band height="25" splitType="Stretch">
+			<element kind="textField" uuid="2271dd66-cca9-45cf-ba0b-d254295f0c62" x="0" y="2" width="60" height="20" fontSize="10.0" hTextAlign="Center" vTextAlign="Middle">
+				<expression><![CDATA[$F{nro_tx}]]></expression>
+			</element>
+			<element kind="textField" uuid="b3ff78f6-0eab-4c17-b798-3a70bbb3d741" x="60" y="2" width="90" height="20" fontSize="10.0" pattern="dd/MM/yyyy" hTextAlign="Center" vTextAlign="Middle">
+				<expression><![CDATA[$F{fecha}]]></expression>
+			</element>
+			<element kind="textField" uuid="8aa5d8c7-c1ae-4098-9fd5-267dbea2bf14" x="150" y="2" width="95" height="20" fontSize="10.0" hTextAlign="Center" vTextAlign="Middle">
+				<expression><![CDATA[$F{metodo}]]></expression>
+			</element>
+			<element kind="textField" uuid="190b7a1f-3a91-4fe6-b608-deee9741efb9" x="245" y="2" width="105" height="20" fontSize="10.0" pattern="#,##0.00#;#,##0.00#-" hTextAlign="Center" vTextAlign="Middle">
+				<expression><![CDATA[$F{monto_decla}]]></expression>
+			</element>
+			<element kind="textField" uuid="539c04e9-b504-4581-bec3-53fc16b4ed24" x="350" y="2" width="105" height="20" fontSize="10.0" pattern="#,##0.00#;#,##0.00#-" hTextAlign="Center" vTextAlign="Middle">
+				<expression><![CDATA[$F{monto_confir} ]]></expression>
+			</element>
+			<element kind="textField" uuid="dfe36968-ff50-4056-9e2f-cee26144ff5d" x="455" y="2" width="100" height="20" fontSize="10.0" pattern="#,##0.00#;#,##0.00#-" hTextAlign="Center" vTextAlign="Middle">
+				<expression><![CDATA[$F{diferencia} ]]></expression>
+			</element>
+		</band>
+	</detail>
+	<pageFooter height="30" splitType="Stretch">
+		<element kind="textField" uuid="c1a2b3d4-0000-4000-8000-000000000001" x="435" y="5" width="80" height="20" fontSize="10.0" hTextAlign="Right">
+			<expression><![CDATA["Página " + $V{PAGE_NUMBER}]]></expression>
+		</element>
+	</pageFooter>
+</jasperReport>

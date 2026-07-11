@@ -1,0 +1,200 @@
+<jasperReport name="ReporteSeguridadAccesos" language="java" pageWidth="595" pageHeight="842" whenNoDataType="AllSectionsNoDetail" columnWidth="555" leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20" uuid="a7cdd28e-68f2-4c92-b857-381e17ab49d8">
+	<property name="com.jaspersoft.studio.data.sql.tables" value=""/>
+	<property name="com.jaspersoft.studio.data.defaultdataadapter" value="proyecto_ucab"/>
+	<parameter name="RangoDias" class="java.lang.Integer">
+		<defaultValueExpression><![CDATA[Integer.valueOf(15)]]></defaultValueExpression>
+	</parameter>
+	<parameter name="Estatus" class="java.lang.String">
+		<defaultValueExpression><![CDATA["Todos"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="IDUsuario" class="java.lang.String">
+		<defaultValueExpression><![CDATA["TODOS"]]></defaultValueExpression>
+	</parameter>
+	<query language="SQL"><![CDATA[WITH Base AS (
+    SELECT s.ci, s.fechainicio, s.ip, s.geolocalizacion, s.uuid,
+           s.protocoloproteccion, s.conteointentosfallidos
+    FROM Sesion s
+    WHERE s.fechainicio >= CURRENT_DATE - $P{RangoDias}
+),
+Clasif AS (
+    SELECT b.*,
+        CASE
+            WHEN b.protocoloproteccion       THEN 'Bloqueado'
+            WHEN b.conteointentosfallidos > 0 THEN 'Fallido'
+            ELSE 'Exitoso'
+        END AS resultado,
+        CASE
+            WHEN b.protocoloproteccion         THEN 'Bloqueo preventivo'
+            WHEN b.conteointentosfallidos >= 5 THEN 'Advertencia'
+            WHEN b.conteointentosfallidos >= 1 THEN 'Registro'
+            ELSE 'Ninguna'
+        END AS accion
+    FROM Base b
+),
+Filtrado AS (
+    SELECT * FROM Clasif c
+    WHERE ($P{Estatus}   = 'Todos' OR c.resultado                = $P{Estatus})
+      AND ($P{IDUsuario} = 'TODOS' OR CAST(c.ci AS VARCHAR)      = $P{IDUsuario})
+),
+Totales AS (
+    SELECT
+        COALESCE(SUM(conteointentosfallidos) FILTER (WHERE fechainicio >= CURRENT_DATE - 1), 0) AS intentos_24h,
+        COUNT(DISTINCT ci) FILTER (WHERE protocoloproteccion)                                   AS cuentas_bloqueadas,
+        (SELECT ip FROM Filtrado GROUP BY ip ORDER BY SUM(conteointentosfallidos) DESC, ip LIMIT 1) AS ip_incidencia
+    FROM Filtrado
+)
+SELECT
+    c.fechainicio      AS momento,
+    c.ip               AS ip_origen,
+    c.uuid,
+    c.ci               AS usuario,
+    c.geolocalizacion  AS ubicacion,
+    c.resultado,
+    c.accion,
+    t.intentos_24h,
+    t.cuentas_bloqueadas,
+    COALESCE(t.ip_incidencia, 'N/A') AS ip_incidencia
+FROM Filtrado c
+CROSS JOIN Totales t
+ORDER BY c.fechainicio DESC, c.ci ASC;]]></query>
+	<field name="momento" class="java.sql.Date">
+		<property name="com.jaspersoft.studio.field.name" value="momento"/>
+		<property name="com.jaspersoft.studio.field.label" value="momento"/>
+	</field>
+	<field name="ip_origen" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="ip_origen"/>
+		<property name="com.jaspersoft.studio.field.label" value="ip_origen"/>
+	</field>
+	<field name="uuid" class="java.lang.Integer">
+		<property name="com.jaspersoft.studio.field.name" value="uuid"/>
+		<property name="com.jaspersoft.studio.field.label" value="uuid"/>
+	</field>
+	<field name="usuario" class="java.lang.Integer">
+		<property name="com.jaspersoft.studio.field.name" value="usuario"/>
+		<property name="com.jaspersoft.studio.field.label" value="usuario"/>
+	</field>
+	<field name="ubicacion" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="ubicacion"/>
+		<property name="com.jaspersoft.studio.field.label" value="ubicacion"/>
+	</field>
+	<field name="resultado" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="resultado"/>
+		<property name="com.jaspersoft.studio.field.label" value="resultado"/>
+	</field>
+	<field name="accion" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="accion"/>
+		<property name="com.jaspersoft.studio.field.label" value="accion"/>
+	</field>
+	<field name="intentos_24h" class="java.lang.Long">
+		<property name="com.jaspersoft.studio.field.name" value="intentos_24h"/>
+		<property name="com.jaspersoft.studio.field.label" value="intentos_24h"/>
+	</field>
+	<field name="cuentas_bloqueadas" class="java.lang.Long">
+		<property name="com.jaspersoft.studio.field.name" value="cuentas_bloqueadas"/>
+		<property name="com.jaspersoft.studio.field.label" value="cuentas_bloqueadas"/>
+	</field>
+	<field name="ip_incidencia" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="ip_incidencia"/>
+		<property name="com.jaspersoft.studio.field.label" value="ip_incidencia"/>
+	</field>
+	<background splitType="Stretch"/>
+	<title height="80" splitType="Stretch">
+		<element kind="rectangle" uuid="7bf03616-c0d5-41a0-acd8-1bdd242ecc25" x="0" y="0" width="555" height="45" backcolor="#027935"/>
+		<element kind="staticText" uuid="184ab5c5-33eb-4ac3-a4d1-76a5ab8243c2" x="15" y="7" width="300" height="30" forecolor="#FFFFFF" fontSize="22.0" bold="true">
+			<text><![CDATA[UCAB Services]]></text>
+		</element>
+		<element kind="rectangle" uuid="3ef34aca-839f-41ca-ae69-c34d842d16b2" x="0" y="45" width="555" height="30" backcolor="#FFD033"/>
+		<element kind="staticText" uuid="f2a874dd-b20f-4284-9ea1-efa6cdf3764c" x="12" y="50" width="48" height="20" fontSize="11.0" bold="true">
+			<text><![CDATA[Rango:]]></text>
+		</element>
+		<element kind="textField" uuid="adb4b94a-eeec-4c28-ab70-2eed6b508598" x="60" y="50" width="120" height="20" fontSize="11.0">
+			<expression><![CDATA["Últimos " + $P{RangoDias} + " días"]]></expression>
+		</element>
+		<element kind="staticText" uuid="7323af06-c447-433b-9130-4ea09b13e8f6" x="198" y="50" width="52" height="20" fontSize="11.0" bold="true">
+			<text><![CDATA[Estatus:]]></text>
+		</element>
+		<element kind="textField" uuid="f504fed8-69bf-4447-b384-fe71b77d5ddc" x="250" y="50" width="80" height="20" fontSize="11.0">
+			<expression><![CDATA[$P{Estatus}]]></expression>
+		</element>
+		<element kind="staticText" uuid="8049fe40-4d78-42c0-95af-d543d13d01c6" x="345" y="50" width="72" height="20" fontSize="11.0" bold="true">
+			<text><![CDATA[ID usuario:]]></text>
+		</element>
+		<element kind="textField" uuid="317e8942-ec47-4b1f-8d90-899842e84be2" x="417" y="50" width="130" height="20" fontSize="11.0">
+			<expression><![CDATA[$P{IDUsuario}]]></expression>
+		</element>
+	</title>
+	<pageHeader height="55" splitType="Stretch">
+		<element kind="rectangle" uuid="9e6833a2-55ea-4cf9-b6b0-e4d8652186a6" x="0" y="8" width="555" height="40" backcolor="#0C578E"/>
+		<element kind="staticText" uuid="270ef9f6-526e-446f-861d-b9549e846160" x="6" y="18" width="80" height="20" forecolor="#FFFFFF" fontSize="9.0" bold="true" vTextAlign="Middle">
+			<text><![CDATA[Fallidos (24h):]]></text>
+		</element>
+		<element kind="textField" uuid="f431ea32-6e7f-4f52-b5fa-cd8f64385c32" x="86" y="18" width="32" height="20" forecolor="#FFFFFF" fontSize="9.0" vTextAlign="Middle">
+			<expression><![CDATA[$F{intentos_24h} == null ? "0" : String.valueOf($F{intentos_24h})]]></expression>
+		</element>
+		<element kind="staticText" uuid="10afc12f-2372-469c-a7f7-2687d19330e0" x="128" y="18" width="112" height="20" forecolor="#FFFFFF" fontSize="9.0" bold="true" vTextAlign="Middle">
+			<text><![CDATA[Cuentas Bloqueadas:]]></text>
+		</element>
+		<element kind="textField" uuid="b19decd8-21e9-4b7b-9281-2fd51a068534" x="240" y="18" width="28" height="20" forecolor="#FFFFFF" fontSize="9.0" vTextAlign="Middle">
+			<expression><![CDATA[$F{cuentas_bloqueadas} == null ? "0" : String.valueOf($F{cuentas_bloqueadas})]]></expression>
+		</element>
+		<element kind="staticText" uuid="d8b4226f-fce4-43bf-bde3-28d41abc2179" x="278" y="18" width="98" height="20" forecolor="#FFFFFF" fontSize="9.0" bold="true" vTextAlign="Middle">
+			<text><![CDATA[IP Más Incidencia:]]></text>
+		</element>
+		<element kind="textField" uuid="a2302374-8e55-4979-848a-7898a861e5fc" x="376" y="18" width="175" height="20" forecolor="#FFFFFF" fontSize="9.0" vTextAlign="Middle">
+			<expression><![CDATA[$F{ip_incidencia} == null ? "N/A" : $F{ip_incidencia}]]></expression>
+		</element>
+	</pageHeader>
+	<columnHeader height="30" splitType="Stretch">
+		<element kind="staticText" uuid="6f35f638-0fee-4467-9f5c-14164116f91d" x="0" y="5" width="78" height="20" fontSize="9.0" bold="true" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[TIMESTAMP]]></text>
+		</element>
+		<element kind="staticText" uuid="828ee6d7-f10e-4a31-bb9f-34382e8a3f03" x="78" y="5" width="85" height="20" fontSize="9.0" bold="true" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[IP ORIGEN]]></text>
+		</element>
+		<element kind="staticText" uuid="5601293f-becd-4c79-aa85-5ae116f76390" x="163" y="5" width="65" height="20" fontSize="9.0" bold="true" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[UUID]]></text>
+		</element>
+		<element kind="staticText" uuid="f3b231d0-bd0b-429b-8fb7-044250983156" x="228" y="5" width="65" height="20" fontSize="9.0" bold="true" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[USUARIO]]></text>
+		</element>
+		<element kind="staticText" uuid="89f35274-f418-40a6-902b-cfee3f1c73d0" x="293" y="5" width="80" height="20" fontSize="9.0" bold="true" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[UBICACIÓN]]></text>
+		</element>
+		<element kind="staticText" uuid="dbe10342-ccb9-4f35-b988-26ba5097255d" x="373" y="5" width="82" height="20" fontSize="9.0" bold="true" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[RESULTADO]]></text>
+		</element>
+		<element kind="staticText" uuid="71e1118f-af10-427b-87b7-62bf784f7d5c" x="455" y="5" width="100" height="20" fontSize="9.0" bold="true" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[ACCIÓN]]></text>
+		</element>
+	</columnHeader>
+	<detail>
+		<band height="30" splitType="Stretch">
+			<element kind="textField" uuid="2d242916-39db-4fc0-bc2c-434c8c57445d" x="0" y="2" width="78" height="26" fontSize="8.0" pattern="dd/MM/yyyy" hTextAlign="Center" vTextAlign="Middle">
+				<expression><![CDATA[$F{momento}]]></expression>
+			</element>
+			<element kind="textField" uuid="f4ebec9f-465b-4490-a2c9-1824223ef552" x="78" y="2" width="85" height="26" fontSize="8.0" hTextAlign="Center" vTextAlign="Middle">
+				<expression><![CDATA[$F{ip_origen}]]></expression>
+			</element>
+			<element kind="textField" uuid="cb9ec69f-17d5-4f27-af61-be6c5cdf4737" x="163" y="2" width="65" height="26" fontSize="8.0" hTextAlign="Center" vTextAlign="Middle">
+				<expression><![CDATA[String.valueOf($F{uuid})]]></expression>
+			</element>
+			<element kind="textField" uuid="88e53092-c70d-4e3f-b3ee-7702e46245e1" x="228" y="2" width="65" height="26" fontSize="8.0" hTextAlign="Center" vTextAlign="Middle">
+				<expression><![CDATA[String.valueOf($F{usuario})]]></expression>
+			</element>
+			<element kind="textField" uuid="cbef6f5b-82d9-437b-8882-863c9c4d276e" x="293" y="2" width="80" height="26" fontSize="8.0" hTextAlign="Center" vTextAlign="Middle">
+				<expression><![CDATA[$F{ubicacion}]]></expression>
+			</element>
+			<element kind="textField" uuid="cb0c8b8b-e507-4143-93d6-bcb4e24569dd" x="373" y="2" width="82" height="26" fontSize="8.0" hTextAlign="Center" vTextAlign="Middle">
+				<expression><![CDATA[$F{resultado}]]></expression>
+			</element>
+			<element kind="textField" uuid="d4ad62be-89ee-4e1f-83d9-5e3ee7bc3a04" x="455" y="2" width="100" height="26" fontSize="8.0" hTextAlign="Center" vTextAlign="Middle">
+				<expression><![CDATA[$F{accion}]]></expression>
+			</element>
+		</band>
+	</detail>
+	<pageFooter height="30" splitType="Stretch">
+		<element kind="textField" uuid="62381e3b-0352-4c4b-8276-e5ab532ec90a" x="435" y="5" width="80" height="20" fontSize="10.0" hTextAlign="Right">
+			<expression><![CDATA["Página " + $V{PAGE_NUMBER}]]></expression>
+		</element>
+	</pageFooter>
+</jasperReport>

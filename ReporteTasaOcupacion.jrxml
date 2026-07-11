@@ -1,0 +1,218 @@
+<jasperReport name="ReporteTasaOcupacion" language="java" pageWidth="595" pageHeight="842" whenNoDataType="AllSectionsNoDetail" columnWidth="555" leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20" uuid="46686222-5bee-4529-87da-501e93d42050">
+	<property name="com.jaspersoft.studio.data.sql.tables" value=""/>
+	<property name="com.jaspersoft.studio.data.defaultdataadapter" value="proyecto_ucab"/>
+	<parameter name="FechaInicio" class="java.sql.Date">
+		<defaultValueExpression><![CDATA[java.sql.Date.valueOf("2026-05-01")]]></defaultValueExpression>
+	</parameter>
+	<parameter name="FechaFin" class="java.sql.Date">
+		<defaultValueExpression><![CDATA[java.sql.Date.valueOf("2026-05-31")]]></defaultValueExpression>
+	</parameter>
+	<parameter name="Sede" class="java.lang.String">
+		<defaultValueExpression><![CDATA["Montalbán"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="TarifaHoraUSD" class="java.lang.Double">
+		<defaultValueExpression><![CDATA[Double.valueOf(30.0)]]></defaultValueExpression>
+	</parameter>
+	<query language="SQL"><![CDATA[WITH BloquesHoras AS (
+    SELECT
+        ef.nroidentificador,
+        ef.direccion,
+        ef.nombre,
+        ef.tipodemobiliario,
+        COALESCE(SUM(EXTRACT(EPOCH FROM (bh.fechahorafin - bh.fechahorainicio)) / 3600.0), 0)::FLOAT AS horas_disp,
+        COALESCE(SUM(CASE WHEN bh.disponibilidad = FALSE
+                          THEN EXTRACT(EPOCH FROM (bh.fechahorafin - bh.fechahorainicio)) / 3600.0
+                          ELSE 0 END), 0)::FLOAT AS horas_reserv
+    FROM EspacioFisico ef
+    JOIN Edificacion e
+        ON ef.direccion = e.direccion AND ef.nombre = e.nombre
+    LEFT JOIN BloqueHorario bh
+        ON  bh.nroidentificador = ef.nroidentificador
+        AND bh.direccion        = ef.direccion
+        AND bh.nombre           = ef.nombre
+        AND bh.fechahorainicio::date BETWEEN $P{FechaInicio} AND $P{FechaFin}
+    WHERE e.ubicacion = $P{Sede}
+    GROUP BY ef.nroidentificador, ef.direccion, ef.nombre, ef.tipodemobiliario
+),
+Calculo AS (
+    SELECT
+        b.nombre,
+        b.tipodemobiliario,
+        b.horas_disp,
+        b.horas_reserv,
+        CASE WHEN b.horas_disp > 0
+             THEN ROUND((b.horas_reserv / b.horas_disp * 100)::NUMERIC, 1)::FLOAT
+             ELSE 0.0::FLOAT END AS pct_ocupacion,
+        ROUND((b.horas_reserv * $P{TarifaHoraUSD})::NUMERIC, 2)::FLOAT AS ingresos
+    FROM BloquesHoras b
+),
+Totales AS (
+    SELECT
+        CASE WHEN SUM(horas_disp) > 0
+             THEN ROUND((SUM(horas_reserv) / SUM(horas_disp) * 100)::NUMERIC, 1)::FLOAT
+             ELSE 0.0::FLOAT END AS ocupacion_global,
+        COALESCE(SUM(ingresos), 0.0)::FLOAT AS ingresos_total,
+        COALESCE((SELECT c2.nombre FROM Calculo c2 ORDER BY c2.ingresos DESC NULLS LAST, c2.nombre ASC LIMIT 1), 'N/A') AS espacio_rentable
+    FROM Calculo
+)
+SELECT
+    c.nombre           AS nombre,
+    c.tipodemobiliario AS tipo,
+    c.horas_disp,
+    c.horas_reserv,
+    c.pct_ocupacion,
+    c.ingresos,
+    CASE
+        WHEN c.pct_ocupacion = 0  THEN 'Nula'
+        WHEN c.pct_ocupacion < 50 THEN 'Baja'
+        WHEN c.pct_ocupacion < 75 THEN 'Media'
+        ELSE 'Alta'
+    END AS estatus,
+    t.ocupacion_global,
+    t.ingresos_total,
+    CAST(t.espacio_rentable AS VARCHAR(100)) AS espacio_rentable
+FROM Calculo c
+CROSS JOIN Totales t
+ORDER BY c.pct_ocupacion DESC, c.nombre ASC;]]></query>
+	<field name="nombre" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="nombre"/>
+		<property name="com.jaspersoft.studio.field.label" value="nombre"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="espaciofisico"/>
+	</field>
+	<field name="tipo" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="tipo"/>
+		<property name="com.jaspersoft.studio.field.label" value="tipo"/>
+	</field>
+	<field name="horas_disp" class="java.lang.Double">
+		<property name="com.jaspersoft.studio.field.name" value="horas_disp"/>
+		<property name="com.jaspersoft.studio.field.label" value="horas_disp"/>
+	</field>
+	<field name="horas_reserv" class="java.lang.Double">
+		<property name="com.jaspersoft.studio.field.name" value="horas_reserv"/>
+		<property name="com.jaspersoft.studio.field.label" value="horas_reserv"/>
+	</field>
+	<field name="pct_ocupacion" class="java.lang.Double">
+		<property name="com.jaspersoft.studio.field.name" value="pct_ocupacion"/>
+		<property name="com.jaspersoft.studio.field.label" value="pct_ocupacion"/>
+	</field>
+	<field name="ingresos" class="java.lang.Double">
+		<property name="com.jaspersoft.studio.field.name" value="ingresos"/>
+		<property name="com.jaspersoft.studio.field.label" value="ingresos"/>
+	</field>
+	<field name="estatus" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="estatus"/>
+		<property name="com.jaspersoft.studio.field.label" value="estatus"/>
+	</field>
+	<field name="ocupacion_global" class="java.lang.Double">
+		<property name="com.jaspersoft.studio.field.name" value="ocupacion_global"/>
+		<property name="com.jaspersoft.studio.field.label" value="ocupacion_global"/>
+	</field>
+	<field name="ingresos_total" class="java.lang.Double">
+		<property name="com.jaspersoft.studio.field.name" value="ingresos_total"/>
+		<property name="com.jaspersoft.studio.field.label" value="ingresos_total"/>
+	</field>
+	<field name="espacio_rentable" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="espacio_rentable"/>
+		<property name="com.jaspersoft.studio.field.label" value="espacio_rentable"/>
+	</field>
+	<background splitType="Stretch"/>
+	<title height="90" splitType="Stretch">
+		<element kind="rectangle" uuid="92441ea5-534b-4976-bb56-5a6d7de1896b" x="0" y="0" width="555" height="45" backcolor="#027935"/>
+		<element kind="staticText" uuid="cc81c6c8-e46c-40e2-965b-d39f8196f9cd" x="15" y="7" width="300" height="30" forecolor="#FFFFFF" fontSize="22.0" bold="true">
+			<text><![CDATA[UCAB Services]]></text>
+		</element>
+		<element kind="rectangle" uuid="423aacdb-e172-4945-a186-85e22fc7c405" x="0" y="45" width="555" height="40" backcolor="#FFD033"/>
+		<element kind="staticText" uuid="65c55f2e-5955-4485-b48a-269bbc5435db" x="10" y="55" width="78" height="20" fontSize="11.0" bold="true">
+			<text><![CDATA[Fecha Inicio:]]></text>
+		</element>
+		<element kind="textField" uuid="e07d496d-1b4d-42a4-b40d-b85f1ec8315c" x="88" y="55" width="72" height="20" fontSize="11.0">
+			<expression><![CDATA[new java.text.SimpleDateFormat("dd/MM/yyyy").format($P{FechaInicio})]]></expression>
+		</element>
+		<element kind="staticText" uuid="263299fc-20a2-4a04-a619-4c8b7beccac0" x="170" y="55" width="62" height="20" fontSize="11.0" bold="true">
+			<text><![CDATA[Fecha Fin:]]></text>
+		</element>
+		<element kind="textField" uuid="d6f72340-276c-4fa0-9863-c8eb1c106429" x="232" y="55" width="72" height="20" fontSize="11.0">
+			<expression><![CDATA[new java.text.SimpleDateFormat("dd/MM/yyyy").format($P{FechaFin})]]></expression>
+		</element>
+		<element kind="staticText" uuid="de847fba-ddbd-482c-86c1-08ad10364647" x="330" y="55" width="42" height="20" fontSize="11.0" bold="true">
+			<text><![CDATA[Sede:]]></text>
+		</element>
+		<element kind="textField" uuid="d62880ad-af96-4979-b7af-9b29336ec158" x="372" y="55" width="175" height="20" fontSize="11.0">
+			<expression><![CDATA[$P{Sede}]]></expression>
+		</element>
+	</title>
+	<pageHeader height="55" splitType="Stretch">
+		<element kind="rectangle" uuid="314680e8-7814-4bf7-af79-a79f371bf913" x="0" y="8" width="555" height="40" backcolor="#0C578E"/>
+		<element kind="staticText" uuid="ef18036b-6693-4e7c-8308-60a7f9a535ff" x="8" y="17" width="98" height="22" forecolor="#FFFFFF" fontSize="10.0" bold="true" vTextAlign="Middle">
+			<text><![CDATA[Ocupación Global:]]></text>
+		</element>
+		<element kind="textField" uuid="bb8ae47d-1ce4-4884-a7e0-c1a7055cd2be" x="106" y="17" width="48" height="22" forecolor="#FFFFFF" fontSize="10.0" vTextAlign="Middle">
+			<expression><![CDATA[$F{ocupacion_global} == null ? "0.0 %" : new java.text.DecimalFormat("#,##0.0").format($F{ocupacion_global}) + " %"]]></expression>
+		</element>
+		<element kind="staticText" uuid="e4d970ad-a282-4dcf-a04c-06bab9d73adc" x="162" y="17" width="48" height="22" forecolor="#FFFFFF" fontSize="10.0" bold="true" vTextAlign="Middle">
+			<text><![CDATA[Ingresos:]]></text>
+		</element>
+		<element kind="textField" uuid="d368f6ff-d650-4828-976c-6005ec4a3f2d" x="210" y="17" width="80" height="22" forecolor="#FFFFFF" fontSize="10.0" vTextAlign="Middle">
+			<expression><![CDATA[$F{ingresos_total} == null ? "0.00" : new java.text.DecimalFormat("#,##0.00").format($F{ingresos_total})]]></expression>
+		</element>
+		<element kind="staticText" uuid="d1965817-2799-4e45-b0ba-a045878ec01b" x="298" y="17" width="118" height="22" forecolor="#FFFFFF" fontSize="9.0" bold="true" vTextAlign="Middle">
+			<text><![CDATA[Espacio Más Rentable:]]></text>
+		</element>
+		<element kind="textField" uuid="a4c8a4ba-c0e2-4592-9602-9d6fa53fc629" x="416" y="17" width="134" height="22" forecolor="#FFFFFF" fontSize="10.0" vTextAlign="Middle">
+			<expression><![CDATA[$F{espacio_rentable} == null ? "N/A" : $F{espacio_rentable}]]></expression>
+		</element>
+	</pageHeader>
+	<columnHeader height="30" splitType="Stretch">
+		<element kind="staticText" uuid="a68d96cf-95ef-41ac-b8af-6926648f5f17" x="0" y="5" width="95" height="20" fontSize="10.0" bold="true" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[NOMBRE]]></text>
+		</element>
+		<element kind="staticText" uuid="6890f292-5a5b-4bae-b78d-a43540da311c" x="95" y="5" width="75" height="20" fontSize="10.0" bold="true" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[TIPO]]></text>
+		</element>
+		<element kind="staticText" uuid="99661747-3078-4abf-a402-832f5f8df86b" x="170" y="5" width="70" height="20" fontSize="10.0" bold="true" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[HORAS DISP.]]></text>
+		</element>
+		<element kind="staticText" uuid="24bb5c99-c707-46fd-8d67-1267191f0928" x="240" y="5" width="70" height="20" fontSize="10.0" bold="true" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[HORAS RESERV.]]></text>
+		</element>
+		<element kind="staticText" uuid="ca151180-f653-4e56-befb-2cff70607f99" x="310" y="5" width="70" height="20" fontSize="10.0" bold="true" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[%OCUPACIÓN]]></text>
+		</element>
+		<element kind="staticText" uuid="51caedfd-254e-4e02-b4a1-7d5231b88179" x="380" y="5" width="90" height="20" fontSize="10.0" bold="true" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[INGRESOS(USD)]]></text>
+		</element>
+		<element kind="staticText" uuid="f73153fa-8ff7-46a3-adf6-2607f572b372" x="470" y="5" width="85" height="20" fontSize="10.0" bold="true" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[ESTATUS]]></text>
+		</element>
+	</columnHeader>
+	<detail>
+		<band height="25" splitType="Stretch">
+			<element kind="textField" uuid="61f7b9f1-179f-49ca-b329-7acfddee4df8" x="0" y="2" width="95" height="20" fontSize="9.0" hTextAlign="Center" vTextAlign="Middle">
+				<expression><![CDATA[$F{nombre}]]></expression>
+			</element>
+			<element kind="textField" uuid="344a2c31-5a66-4221-b941-6d205c1a5145" x="95" y="2" width="75" height="20" fontSize="9.0" hTextAlign="Center" vTextAlign="Middle">
+				<expression><![CDATA[$F{tipo}]]></expression>
+			</element>
+			<element kind="textField" uuid="3fbeaa26-9c5f-4987-aa54-2a7e9cf2f3a9" x="170" y="2" width="70" height="20" fontSize="9.0" hTextAlign="Center" vTextAlign="Middle">
+				<expression><![CDATA[new java.text.DecimalFormat("#,##0.#").format($F{horas_disp}) + "h"]]></expression>
+			</element>
+			<element kind="textField" uuid="276f50db-4a49-4ab4-b51c-52b1aa62de5a" x="240" y="2" width="70" height="20" fontSize="9.0" hTextAlign="Center" vTextAlign="Middle">
+				<expression><![CDATA[new java.text.DecimalFormat("#,##0.#").format($F{horas_reserv}) + "h"]]></expression>
+			</element>
+			<element kind="textField" uuid="86829e37-a1e8-4054-b684-0d52524d130d" x="310" y="2" width="70" height="20" fontSize="9.0" hTextAlign="Center" vTextAlign="Middle">
+				<expression><![CDATA[new java.text.DecimalFormat("#,##0.#").format($F{pct_ocupacion}) + "%"]]></expression>
+			</element>
+			<element kind="textField" uuid="9529a2c5-7fbe-4a77-871f-dbcf1178341d" x="380" y="2" width="90" height="20" fontSize="9.0" hTextAlign="Center" vTextAlign="Middle">
+				<expression><![CDATA["$" + new java.text.DecimalFormat("#,##0.00").format($F{ingresos})]]></expression>
+			</element>
+			<element kind="textField" uuid="94b9c423-1a37-4bde-bfe7-c04db90fe7ec" x="470" y="2" width="85" height="20" fontSize="9.0" hTextAlign="Center" vTextAlign="Middle">
+				<expression><![CDATA[$F{estatus}]]></expression>
+			</element>
+		</band>
+	</detail>
+	<pageFooter height="30" splitType="Stretch">
+		<element kind="textField" uuid="0879627e-f07b-43ca-94b5-384db426c1a5" x="435" y="5" width="80" height="20" fontSize="10.0" hTextAlign="Right">
+			<expression><![CDATA["Página " + $V{PAGE_NUMBER}]]></expression>
+		</element>
+	</pageFooter>
+</jasperReport>

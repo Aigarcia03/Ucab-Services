@@ -1,0 +1,184 @@
+<jasperReport name="ReporteMorosidad" language="java" pageWidth="595" pageHeight="842" whenNoDataType="AllSectionsNoDetail" columnWidth="555" leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20" uuid="13cdb8d6-9c08-4379-8c27-01ba0a505c14">
+	<property name="com.jaspersoft.studio.data.sql.tables" value=""/>
+	<property name="com.jaspersoft.studio.data.defaultdataadapter" value="proyecto_ucab"/>
+	<parameter name="Sede" class="java.lang.String">
+		<defaultValueExpression><![CDATA["Todas"]]></defaultValueExpression>
+	</parameter>
+	<query language="SQL"><![CDATA[WITH Morosos AS (
+    SELECT
+        f.numero,
+        f.ci,
+        (m.primernombre || ' ' || m.primerapellido) AS nombre,
+        f.fechahoraemision::date AS fecha_vencimiento,
+        (CURRENT_DATE - f.fechahoraemision::date) AS dias_mora,
+        f.deuda::FLOAT AS total,
+        COALESCE(f.descripcion, 'N/A') AS servicio,
+        s.ubicacion AS sede
+    FROM Factura f
+    JOIN Miembro m ON f.ci = m.ci
+    LEFT JOIN Servicio s ON f.nombrecategoria = s.nombrecategoria
+                        AND f.idprestadora   = s.idprestadora
+                        AND f.descripcion     = s.descripcion
+    WHERE f.estatus = 'pendiente'
+      AND f.ci IS NOT NULL
+      AND f.fechahoraemision::date < CURRENT_DATE
+),
+Filtrado AS (
+    SELECT * FROM Morosos
+    WHERE ($P{Sede} = 'Todas' OR sede = $P{Sede})
+),
+Totales AS (
+    SELECT
+        COALESCE(SUM(total), 0.0)::FLOAT AS deuda_acumulada,
+        COUNT(*)            AS tramites_mora,
+        COUNT(DISTINCT ci)  AS usuarios_morosos
+    FROM Filtrado
+)
+SELECT
+    ('V-'   || f.ci)     AS documento,
+    f.nombre,
+    ('FOL-' || f.numero) AS factura,
+    f.fecha_vencimiento,
+    f.dias_mora,
+    f.total,
+    f.servicio,
+    CASE WHEN f.dias_mora >= 90 THEN 'Bloqueo de cuenta' ELSE 'Notificar' END AS acciones,
+    t.deuda_acumulada,
+    t.tramites_mora,
+    t.usuarios_morosos
+FROM Filtrado f
+CROSS JOIN Totales t
+ORDER BY f.dias_mora DESC, f.nombre ASC;]]></query>
+	<field name="documento" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="documento"/>
+		<property name="com.jaspersoft.studio.field.label" value="documento"/>
+	</field>
+	<field name="nombre" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="nombre"/>
+		<property name="com.jaspersoft.studio.field.label" value="nombre"/>
+	</field>
+	<field name="factura" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="factura"/>
+		<property name="com.jaspersoft.studio.field.label" value="factura"/>
+	</field>
+	<field name="fecha_vencimiento" class="java.sql.Date">
+		<property name="com.jaspersoft.studio.field.name" value="fecha_vencimiento"/>
+		<property name="com.jaspersoft.studio.field.label" value="fecha_vencimiento"/>
+	</field>
+	<field name="dias_mora" class="java.lang.Integer">
+		<property name="com.jaspersoft.studio.field.name" value="dias_mora"/>
+		<property name="com.jaspersoft.studio.field.label" value="dias_mora"/>
+	</field>
+	<field name="total" class="java.lang.Double">
+		<property name="com.jaspersoft.studio.field.name" value="total"/>
+		<property name="com.jaspersoft.studio.field.label" value="total"/>
+	</field>
+	<field name="servicio" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="servicio"/>
+		<property name="com.jaspersoft.studio.field.label" value="servicio"/>
+	</field>
+	<field name="acciones" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="acciones"/>
+		<property name="com.jaspersoft.studio.field.label" value="acciones"/>
+	</field>
+	<field name="deuda_acumulada" class="java.lang.Double">
+		<property name="com.jaspersoft.studio.field.name" value="deuda_acumulada"/>
+		<property name="com.jaspersoft.studio.field.label" value="deuda_acumulada"/>
+	</field>
+	<field name="tramites_mora" class="java.lang.Long">
+		<property name="com.jaspersoft.studio.field.name" value="tramites_mora"/>
+		<property name="com.jaspersoft.studio.field.label" value="tramites_mora"/>
+	</field>
+	<field name="usuarios_morosos" class="java.lang.Long">
+		<property name="com.jaspersoft.studio.field.name" value="usuarios_morosos"/>
+		<property name="com.jaspersoft.studio.field.label" value="usuarios_morosos"/>
+	</field>
+	<background splitType="Stretch"/>
+	<title height="80" splitType="Stretch">
+		<element kind="rectangle" uuid="c25d7a96-aed8-46b4-b23e-e45b83372344" x="0" y="0" width="555" height="45" backcolor="#027935"/>
+		<element kind="staticText" uuid="be29d892-b480-4046-845a-784a4bdddd4b" x="15" y="7" width="300" height="30" forecolor="#FFFFFF" fontSize="22.0" bold="true">
+			<text><![CDATA[UCAB Services]]></text>
+		</element>
+		<element kind="rectangle" uuid="d60e7227-2ed7-4feb-996b-8d7e9c140902" x="0" y="45" width="555" height="30" backcolor="#FFD033"/>
+		<element kind="staticText" uuid="8abedc50-0e94-4a54-aba1-583db96720f4" x="15" y="50" width="45" height="20" fontSize="12.0" bold="true">
+			<text><![CDATA[Sede:]]></text>
+		</element>
+		<element kind="textField" uuid="b514feb2-6ad2-41da-922a-a9ce542ea83e" x="60" y="50" width="250" height="20" fontSize="12.0">
+			<expression><![CDATA[$P{Sede}]]></expression>
+		</element>
+	</title>
+	<pageHeader height="55" splitType="Stretch">
+		<element kind="rectangle" uuid="b68977ec-0aee-4dc4-aefb-a79a1204d736" x="0" y="8" width="555" height="40" backcolor="#0C578E"/>
+		<element kind="staticText" uuid="ac4cdb9d-a3fd-4619-8908-eef4c577afea" x="6" y="18" width="100" height="20" forecolor="#FFFFFF" fontSize="9.0" bold="true" vTextAlign="Middle">
+			<text><![CDATA[Deuda Acumulada:]]></text>
+		</element>
+		<element kind="textField" uuid="911ecc88-d60b-4d51-b39a-d44b59292389" x="106" y="18" width="78" height="20" forecolor="#FFFFFF" fontSize="9.0" vTextAlign="Middle">
+			<expression><![CDATA[$F{deuda_acumulada} == null ? "$0.00" : "$" + new java.text.DecimalFormat("#,##0.00").format($F{deuda_acumulada})]]></expression>
+		</element>
+		<element kind="staticText" uuid="a64dac30-375e-48ff-a21d-28c499ce4270" x="190" y="18" width="98" height="20" forecolor="#FFFFFF" fontSize="9.0" bold="true" vTextAlign="Middle">
+			<text><![CDATA[Trámites en Mora:]]></text>
+		</element>
+		<element kind="textField" uuid="8dae4d44-ca81-4097-a30f-244eb22bd769" x="288" y="18" width="28" height="20" forecolor="#FFFFFF" fontSize="9.0" vTextAlign="Middle">
+			<expression><![CDATA[$F{tramites_mora} == null ? "0" : String.valueOf($F{tramites_mora})]]></expression>
+		</element>
+		<element kind="staticText" uuid="7e221faf-c330-422b-9a80-d5a755044703" x="326" y="18" width="105" height="20" forecolor="#FFFFFF" fontSize="9.0" bold="true" vTextAlign="Middle">
+			<text><![CDATA[Usuarios Morosos:]]></text>
+		</element>
+		<element kind="textField" uuid="e846f139-a0c7-4d6b-9044-53d6f6675b08" x="431" y="18" width="60" height="20" forecolor="#FFFFFF" fontSize="9.0" vTextAlign="Middle">
+			<expression><![CDATA[$F{usuarios_morosos} == null ? "0" : String.valueOf($F{usuarios_morosos})]]></expression>
+		</element>
+	</pageHeader>
+	<columnHeader height="30" splitType="Stretch">
+		<element kind="staticText" uuid="7b538d40-6956-4490-a412-3b4b3876b590" x="0" y="5" width="95" height="20" fontSize="9.0" bold="true" hTextAlign="Left" vTextAlign="Middle">
+			<text><![CDATA[NOMBRE]]></text>
+		</element>
+		<element kind="staticText" uuid="e536e323-f74d-4bd1-9563-68ec4716aee6" x="95" y="5" width="62" height="20" fontSize="9.0" bold="true" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[FACTURA]]></text>
+		</element>
+		<element kind="staticText" uuid="1aae66ee-b383-4df2-a37f-119f1c6aeec1" x="157" y="5" width="78" height="20" fontSize="9.0" bold="true" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[FECHA VENC.]]></text>
+		</element>
+		<element kind="staticText" uuid="a08a864c-da59-4cd3-8b90-ec29b5e40e5b" x="235" y="5" width="70" height="20" fontSize="9.0" bold="true" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[DÍAS MORA]]></text>
+		</element>
+		<element kind="staticText" uuid="9c80da52-4a09-4833-b457-ff0b076f5cc0" x="305" y="5" width="62" height="20" fontSize="9.0" bold="true" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[TOTAL]]></text>
+		</element>
+		<element kind="staticText" uuid="868d199b-6b42-44d5-93a8-5dde448ed54a" x="367" y="5" width="105" height="20" fontSize="9.0" bold="true" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[SERVICIO]]></text>
+		</element>
+		<element kind="staticText" uuid="c48a0c2c-adc4-44a9-ab26-7015df427026" x="472" y="5" width="83" height="20" fontSize="9.0" bold="true" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[ACCIONES]]></text>
+		</element>
+	</columnHeader>
+	<detail>
+		<band height="38" splitType="Stretch">
+			<element kind="textField" uuid="43d37eff-d768-43a3-b7f5-cde6d7670052" x="2" y="3" width="93" height="32" fontSize="9.0" hTextAlign="Left" vTextAlign="Middle">
+				<expression><![CDATA[$F{nombre} + "\n" + $F{documento}]]></expression>
+			</element>
+			<element kind="textField" uuid="1ee9f8a4-8463-4be4-957a-6fdcc440e982" x="95" y="3" width="62" height="32" fontSize="9.0" hTextAlign="Center" vTextAlign="Middle">
+				<expression><![CDATA[$F{factura}]]></expression>
+			</element>
+			<element kind="textField" uuid="e6ec9c4d-7216-4ca7-a4cf-553fe89bd85a" x="157" y="3" width="78" height="32" fontSize="9.0" pattern="dd/MM/yyyy" hTextAlign="Center" vTextAlign="Middle">
+				<expression><![CDATA[$F{fecha_vencimiento}]]></expression>
+			</element>
+			<element kind="textField" uuid="53367c18-a38a-4df3-9c35-e680ee860447" x="235" y="3" width="70" height="32" fontSize="9.0" hTextAlign="Center" vTextAlign="Middle">
+				<expression><![CDATA[$F{dias_mora} + " días"]]></expression>
+			</element>
+			<element kind="textField" uuid="315dbca3-9796-437e-9cfc-19bbf34600cb" x="305" y="3" width="62" height="32" fontSize="9.0" hTextAlign="Center" vTextAlign="Middle">
+				<expression><![CDATA["$" + new java.text.DecimalFormat("#,##0.00").format($F{total})]]></expression>
+			</element>
+			<element kind="textField" uuid="a72627a9-9135-468b-814b-1db0c8bf92c4" x="367" y="3" width="105" height="32" fontSize="9.0" hTextAlign="Center" vTextAlign="Middle">
+				<expression><![CDATA[$F{servicio}]]></expression>
+			</element>
+			<element kind="textField" uuid="6d6f991e-e975-4b29-ba87-cf5ae8dae35c" x="472" y="3" width="83" height="32" fontSize="9.0" hTextAlign="Center" vTextAlign="Middle">
+				<expression><![CDATA[$F{acciones}]]></expression>
+			</element>
+		</band>
+	</detail>
+	<pageFooter height="30" splitType="Stretch">
+		<element kind="textField" uuid="d1194752-af56-407d-8837-4e8e481283d7" x="435" y="5" width="80" height="20" fontSize="10.0" hTextAlign="Right">
+			<expression><![CDATA["Página " + $V{PAGE_NUMBER}]]></expression>
+		</element>
+	</pageFooter>
+</jasperReport>
