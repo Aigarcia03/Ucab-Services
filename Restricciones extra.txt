@@ -1,0 +1,17 @@
+Restricciones extra de la Base de Datos:
+ - Para todo miembro, el valor de sexo va a ser solo 'F' o 'M'.
+ - Para todo miembro, el correo institucional debe ser único.
+ - Para toda Sesión el valor de MFA solo puede ser 'activo', 'desactivado' o 'pendiente'.
+ - Para todo Asiste, la fecha de inicio del curso debe ser la misma que la fecha inicio en se vincula de Rol.
+ - Para todo Estudiante, el semestre debe ser un número entero positivo mayor a cero.
+ - Para todo Estudiante, las unidades de crédito aprobadas deben ser un número entero mayor o igual a cero.
+ - Para todo Estudiante, el promedio ponderado debe ser un número real entre 0 y 20.
+ - Para todo Asiste, la nota debe ser un número real entre 0 y 20.
+ - Para todo Egresado, el índice académico final debe ser un número real entre 0 y 20.
+ - Para todo Espacio Físico, la capacidad máxima debe ser un número entero positivo mayor a cero.
+ - Para todo Medio de Transporte, la capacidad debe ser un número entero positivo mayor a cero.
+ - Para todo Servicio, el precio base debe ser un número real positivo y único.
+ - Para todo SePostula, el resultado solo puede ser 'en revisión', 'aceptado' o 'rechazado'.
+ - Para todo PagoPresencial, la moneda de curso solo puede ser 'bolivares', 'divisas'.
+ - Para toda Factura, el estatus solo puede ser 'pagada' o 'pendiente'.
+ - Para todo Bloque Horario, el dia solo puede ser un número mayor a 0 y menor a 8.
