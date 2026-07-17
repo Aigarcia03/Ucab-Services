@@ -1,3 +1,4 @@
+<!-- Created with Jaspersoft Studio version 7.0.6.final using JasperReports Library version 7.0.6-5d2a603fdc6b3db8f842a83383e594f41891534d  -->
 <jasperReport name="ReporteSeguridadAccesos" language="java" pageWidth="595" pageHeight="842" whenNoDataType="AllSectionsNoDetail" columnWidth="555" leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20" uuid="a7cdd28e-68f2-4c92-b857-381e17ab49d8">
 	<property name="com.jaspersoft.studio.data.sql.tables" value=""/>
 	<property name="com.jaspersoft.studio.data.defaultdataadapter" value="proyecto_ucab"/>
@@ -40,7 +41,7 @@ Totales AS (
     SELECT
         COALESCE(SUM(conteointentosfallidos) FILTER (WHERE fechainicio >= CURRENT_DATE - 1), 0) AS intentos_24h,
         COUNT(DISTINCT ci) FILTER (WHERE protocoloproteccion)                                   AS cuentas_bloqueadas,
-        (SELECT ip FROM Filtrado GROUP BY ip ORDER BY SUM(conteointentosfallidos) DESC, ip LIMIT 1) AS ip_incidencia
+        (SELECT HOST(ip) FROM Filtrado GROUP BY ip ORDER BY SUM(conteointentosfallidos) DESC, ip LIMIT 1) AS ip_incidencia
     FROM Filtrado
 )
 SELECT
@@ -60,22 +61,27 @@ ORDER BY c.fechainicio DESC, c.ci ASC;]]></query>
 	<field name="momento" class="java.sql.Date">
 		<property name="com.jaspersoft.studio.field.name" value="momento"/>
 		<property name="com.jaspersoft.studio.field.label" value="momento"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="sesion"/>
 	</field>
 	<field name="ip_origen" class="java.lang.String">
 		<property name="com.jaspersoft.studio.field.name" value="ip_origen"/>
 		<property name="com.jaspersoft.studio.field.label" value="ip_origen"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="sesion"/>
 	</field>
 	<field name="uuid" class="java.lang.Integer">
 		<property name="com.jaspersoft.studio.field.name" value="uuid"/>
 		<property name="com.jaspersoft.studio.field.label" value="uuid"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="sesion"/>
 	</field>
 	<field name="usuario" class="java.lang.Integer">
 		<property name="com.jaspersoft.studio.field.name" value="usuario"/>
 		<property name="com.jaspersoft.studio.field.label" value="usuario"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="sesion"/>
 	</field>
 	<field name="ubicacion" class="java.lang.String">
 		<property name="com.jaspersoft.studio.field.name" value="ubicacion"/>
 		<property name="com.jaspersoft.studio.field.label" value="ubicacion"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="sesion"/>
 	</field>
 	<field name="resultado" class="java.lang.String">
 		<property name="com.jaspersoft.studio.field.name" value="resultado"/>
