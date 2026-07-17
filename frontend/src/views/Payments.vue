@@ -19,52 +19,32 @@
 
       <div class="form-row">
         <div class="form-group full">
-          <label class="form-label">Categoría de pago</label>
-          <div class="radio-group">
-            <label class="radio-option">
-              <input type="radio" value="online" v-model="categoria">
-              <span class="radio-dot"></span> En línea
-            </label>
-            <label class="radio-option">
-              <input type="radio" value="presencial" v-model="categoria">
-              <span class="radio-dot"></span> Presencial
-            </label>
-          </div>
-        </div>
-      </div>
-
-      <div class="form-row">
-        <div class="form-group full">
           <label class="form-label">Método de pago</label>
           <div class="radio-group">
-            <template v-if="categoria === 'online'">
-              <label class="radio-option">
-                <input type="radio" value="zelle" v-model="metodo">
-                <span class="radio-dot"></span> Zelle
-              </label>
-              <label class="radio-option">
-                <input type="radio" value="crypto" v-model="metodo">
-                <span class="radio-dot"></span> Criptomoneda
-              </label>
-            </template>
-            <template v-else>
-              <label class="radio-option">
-                <input type="radio" value="movil" v-model="metodo">
-                <span class="radio-dot"></span> Pago móvil
-              </label>
-              <label class="radio-option">
-                <input type="radio" value="tarjeta" v-model="metodo">
-                <span class="radio-dot"></span> Tarjeta
-              </label>
-              <label class="radio-option">
-                <input type="radio" value="efectivo" v-model="metodo">
-                <span class="radio-dot"></span> Efectivo
-              </label>
-              <label class="radio-option">
-                <input type="radio" value="tai" v-model="metodo">
-                <span class="radio-dot"></span> TAI
-              </label>
-            </template>
+            <label class="radio-option">
+              <input type="radio" value="zelle" v-model="metodo">
+              <span class="radio-dot"></span> Zelle
+            </label>
+            <label class="radio-option">
+              <input type="radio" value="crypto" v-model="metodo">
+              <span class="radio-dot"></span> Criptomoneda
+            </label>
+            <label class="radio-option">
+              <input type="radio" value="tarjeta" v-model="metodo">
+              <span class="radio-dot"></span> Tarjeta
+            </label>
+            <label class="radio-option">
+              <input type="radio" value="pagomovil" v-model="metodo">
+              <span class="radio-dot"></span> Pago Móvil
+            </label>
+            <label class="radio-option">
+              <input type="radio" value="tai" v-model="metodo">
+              <span class="radio-dot"></span> TAI
+            </label>
+            <label class="radio-option">
+              <input type="radio" value="efectivo" v-model="metodo">
+              <span class="radio-dot"></span> Efectivo
+            </label>
           </div>
         </div>
       </div>
@@ -123,58 +103,25 @@
         </div>
       </template>
 
-      <!-- Pago móvil -->
-      <template v-if="metodo === 'movil'">
-        <div class="form-row">
-          <div class="form-group half">
-            <label class="form-label">Nro. de referencia</label>
-            <input type="text" v-model="form.nroReferencia" class="form-input" placeholder="01293849390891">
-          </div>
-          <div class="form-group half">
-            <label class="form-label">Teléfono del emisor</label>
-            <input type="text" v-model="form.telefonoEmisor" class="form-input" placeholder="04121234567">
-          </div>
-        </div>
-        <div class="form-row">
-          <div class="form-group half">
-            <label class="form-label">Banco</label>
-            <select v-model="form.banco" class="form-input custom-select">
-              <option value="Bancamiga">Bancamiga</option>
-              <option value="Banesco">Banesco</option>
-              <option value="Mercantil">Mercantil</option>
-              <option value="Provincial">Provincial</option>
-              <option value="Venezuela">Banco de Venezuela</option>
-            </select>
-          </div>
-          <div class="form-group half">
-            <label class="form-label">Cédula</label>
-            <input type="text" v-model="form.cedula" class="form-input" placeholder="27033930">
-          </div>
-        </div>
-      </template>
-
       <!-- Tarjeta -->
       <template v-if="metodo === 'tarjeta'">
         <div class="form-row">
           <div class="form-group half">
-            <label class="form-label">Nro. de tarjeta</label>
-            <input type="text" v-model="form.nroTarjeta" class="form-input" placeholder="1234567890123456">
+            <label class="form-label">Número de tarjeta</label>
+            <input type="text" v-model="form.nroTarjeta" class="form-input" placeholder="456720340022">
           </div>
           <div class="form-group half">
             <label class="form-label">Compañía emisora</label>
-            <select v-model="form.companiaEmisora" class="form-input custom-select">
-              <option value="Visa">Visa</option>
-              <option value="Mastercard">Mastercard</option>
-              <option value="American Express">American Express</option>
-              <option value="Cabal">Cabal</option>
-              <option value="Maestro">Maestro</option>
-            </select>
+            <input type="text" v-model="form.companiaEmisora" class="form-input" placeholder="Mercantil">
           </div>
         </div>
         <div class="form-row">
           <div class="form-group half">
             <label class="form-label">Moneda de liquidación</label>
-            <input type="text" v-model="form.monedaLiquidacion" class="form-input" placeholder="USD / EUR / VES">
+            <select v-model="form.monedaLiquidacion" class="form-input custom-select">
+              <option value="Dolar">Dólar</option>
+              <option value="Bolivares">Bolívares</option>
+            </select>
           </div>
           <div class="form-group half">
             <label class="form-label">Tipo de red</label>
@@ -187,7 +134,41 @@
         <div class="form-row">
           <div class="form-group half">
             <label class="form-label">Fecha de vencimiento</label>
-            <input type="month" v-model="form.fechaVencimiento" class="form-input">
+            <input type="date" v-model="form.fechaVencimiento" class="form-input">
+          </div>
+        </div>
+      </template>
+
+      <!-- Pago Móvil -->
+      <template v-if="metodo === 'pagomovil'">
+        <div class="form-row">
+          <div class="form-group half">
+            <label class="form-label">Número de referencia</label>
+            <input type="text" v-model="form.nroReferencia" class="form-input" placeholder="1234567890">
+          </div>
+          <div class="form-group half">
+            <label class="form-label">Teléfono del emisor</label>
+            <input type="text" v-model="form.telefonoEmisor" class="form-input" placeholder="04141234567">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group half">
+            <label class="form-label">Banco</label>
+            <input type="text" v-model="form.banco" class="form-input" placeholder="Mercantil">
+          </div>
+        </div>
+      </template>
+
+      <!-- TAI -->
+      <template v-if="metodo === 'tai'">
+        <div class="form-row">
+          <div class="form-group half">
+            <label class="form-label">POS</label>
+            <input type="text" v-model="form.pos" class="form-input" placeholder="12345">
+          </div>
+          <div class="form-group half">
+            <label class="form-label">UID</label>
+            <input type="text" v-model="form.uid" class="form-input" placeholder="12345678">
           </div>
         </div>
       </template>
@@ -199,33 +180,8 @@
             <label class="form-label">Moneda de curso</label>
             <select v-model="form.monedaDeCurso" class="form-input custom-select">
               <option value="bolivares">Bolívares</option>
-              <option value="divisas">Divisas</option>
+              <option value="dolares">Dólares</option>
             </select>
-          </div>
-        </div>
-        <div class="form-row">
-          <div class="form-group full">
-            <label class="form-label">Desglose de denominaciones</label>
-            <div v-for="(d, i) in form.denominaciones" :key="i" class="den-row">
-              <input type="number" v-model="d.cantidad" class="form-input den-input" placeholder="Cantidad" min="1">
-              <input type="number" v-model="d.valor" class="form-input den-input" placeholder="Valor unitario" min="1">
-              <button @click="quitarDenominacion(i)" class="btn-den-remove" v-if="form.denominaciones.length > 1">✕</button>
-            </div>
-            <button @click="agregarDenominacion" class="btn-den-add">+ Agregar denominación</button>
-          </div>
-        </div>
-      </template>
-
-      <!-- TAI -->
-      <template v-if="metodo === 'tai'">
-        <div class="form-row">
-          <div class="form-group half">
-            <label class="form-label">POS (Punto de operación)</label>
-            <input type="number" v-model="form.pos" class="form-input" placeholder="1">
-          </div>
-          <div class="form-group half">
-            <label class="form-label">UID (Cédula del estudiante)</label>
-            <input type="number" v-model="form.uid" class="form-input" placeholder="12345678">
           </div>
         </div>
       </template>
@@ -241,7 +197,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue'
+import { ref, computed } from 'vue'
 
 const props = defineProps({
   transaction: {
@@ -254,61 +210,43 @@ const emit = defineEmits(['paymentConfirmed'])
 const descripcion = computed(() => props.transaction?.descripcion ?? 'Reserva de servicio')
 const monto = computed(() => (props.transaction?.monto ?? 12.5).toFixed(2))
 
-const categoria = ref('online')
 const metodo = ref('zelle')
 const procesando = ref(false)
 const mensaje = ref('')
 const mensajeError = ref(false)
 
 const form = ref({
-  // Zelle
   codigoConfirmacion: '',
   correoElectronico: '',
   primerNombre: '',
   primerApellido: '',
-  // Crypto
   txid: '',
   red: 'BTC',
   direccionBilletera: '',
   tasaConversion: '',
-  // Pago móvil
-  nroReferencia: '',
-  telefonoEmisor: '',
-  banco: 'Bancamiga',
-  cedula: '',
-  // Tarjeta
   nroTarjeta: '',
-  companiaEmisora: 'Visa',
-  monedaLiquidacion: 'USD',
+  companiaEmisora: '',
+  monedaLiquidacion: 'Dolar',
   tipoRed: 'nacional',
   fechaVencimiento: '',
-  // Efectivo
-  monedaDeCurso: 'bolivares',
-  denominaciones: [{ cantidad: 1, valor: 10 }],
-  // TAI
+  nroReferencia: '',
+  telefonoEmisor: '',
+  banco: '',
   pos: '',
-  uid: ''
+  uid: '',
+  monedaDeCurso: 'bolivares'
 })
-
-watch(categoria, () => {
-  metodo.value = categoria.value === 'online' ? 'zelle' : 'movil'
-})
-
-const agregarDenominacion = () => {
-  form.value.denominaciones.push({ cantidad: 1, valor: 10 })
-}
-
-const quitarDenominacion = (i) => {
-  form.value.denominaciones.splice(i, 1)
-}
 
 const registrarPago = async () => {
   const payload = {
-    categoria: categoria.value,
     metodo: metodo.value,
-    descripcion: descripcion.value,
     monto: parseFloat(monto.value),
-    ...form.value
+    ...form.value,
+    ci: props.transaction?.ci,
+    idPrestadora: props.transaction?.idPrestadora,
+    nombreCategoria: props.transaction?.nombreCategoria,
+    descripcion: props.transaction?.descripcionTramite ?? props.transaction?.descripcion ?? '',
+    fechaCreacion: props.transaction?.fechaCreacion
   }
 
   procesando.value = true
@@ -460,40 +398,6 @@ const registrarPago = async () => {
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-}
-
-.den-row {
-  display: flex;
-  gap: 12px;
-  margin-bottom: 10px;
-  align-items: center;
-}
-
-.den-input {
-  flex: 1;
-  min-width: 120px;
-}
-
-.btn-den-remove {
-  background: #e74c3c;
-  color: white;
-  border: none;
-  border-radius: 50%;
-  width: 30px;
-  height: 30px;
-  cursor: pointer;
-  font-weight: bold;
-}
-
-.btn-den-add {
-  background: #2ecc71;
-  color: white;
-  border: none;
-  border-radius: 20px;
-  padding: 8px 18px;
-  cursor: pointer;
-  font-weight: 600;
-  font-size: 0.9rem;
 }
 
 .form-actions {

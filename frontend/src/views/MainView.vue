@@ -43,7 +43,7 @@
         </div>
 
         <nav class="sidebar-nav">
-          <ul class="nav-list">
+          <ul v-if="!userProfile.admin" class="nav-list">
             <li class="nav-item" :class="{ active: currentView === 'notificaciones' }" @click="currentView = 'notificaciones'">
               <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0"/></svg>
               <span>Notificaciones</span>
@@ -57,41 +57,55 @@
           <hr class="nav-divider" />
 
           <ul class="nav-list">
-            <li class="nav-item" :class="{ active: currentView === 'cuentas' }" @click="currentView = 'cuentas'">
-              <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/></svg>
-              <span>Estado de cuentas</span>
+            <template v-if="!userProfile.admin">
+              <li class="nav-item" :class="{ active: currentView === 'cuentas' }" @click="currentView = 'cuentas'">
+                <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/></svg>
+                <span>Estado de cuentas</span>
+              </li>
+              <li class="nav-item" :class="{ active: currentView === 'catalogos' }" @click="currentView = 'catalogos'">
+                <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                <span>Catálogos</span>
+              </li>
+              <li class="nav-item" :class="{ active: currentView === 'reservaciones' }" @click="currentView = 'reservaciones'">
+                <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                <span>Reservaciones</span>
+              </li>
+              <li class="nav-item" :class="{ active: currentView === 'feed' }" @click="currentView = 'feed'">
+                <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+                <span>Feed</span>
+              </li>
+              <li class="nav-item" :class="{ active: currentView === 'bolsa' }" @click="currentView = 'bolsa'">
+                <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="12" cy="12" r="3"/><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/></svg>
+                <span>Bolsa de trabajo</span>
+              </li>
+              <li class="nav-item" :class="{ active: currentView === 'viajes' }" @click="currentView = 'viajes'">
+                <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a15 15 0 0 1 0 20 15 15 0 0 1 0-20z"/><path d="M2 12h20"/></svg>
+                <span>Viajes</span>
+              </li>
+              <li class="nav-item" :class="{ active: currentView === 'tai' }" @click="currentView = 'tai'">
+                <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
+                <span>Mi TAI</span>
+              </li>
+              <li v-if="userProfile.activeRole === 'Profesor' || userProfile.activeRole === 'Personal Administrativo'" class="nav-item" :class="{ active: currentView === 'familiares' }" @click="currentView = 'familiares'">
+                <svg class="nav-icon" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                <span>Familiar</span>
+              </li>
+              <li v-if="userProfile.activeRole === 'Profesor' || userProfile.activeRole === 'Estudiante' || userProfile.activeRole === 'Estudiante (Becario)' || userProfile.activeRole === 'Estudiante (Preparador)'" class="nav-item" :class="{ active: currentView === 'cursos' }" @click="currentView = 'cursos'">
+                <svg class="nav-icon" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+                <span>Cursos</span>
+              </li>
+            </template>
+            <li v-if="userProfile.admin || userProfile.activeRole === 'Personal Administrativo'" class="nav-item" :class="{ active: currentView === 'todosTramites' }" @click="currentView = 'todosTramites'">
+              <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+              <span>Todos los trámites</span>
             </li>
-            <li class="nav-item" :class="{ active: currentView === 'catalogos' }" @click="currentView = 'catalogos'">
-              <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-              <span>Catálogos</span>
-            </li>
-            <li class="nav-item" :class="{ active: currentView === 'reservaciones' }" @click="currentView = 'reservaciones'">
-              <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-              <span>Reservaciones</span>
-            </li>
-            <li class="nav-item" :class="{ active: currentView === 'feed' }" @click="currentView = 'feed'">
-              <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
-              <span>Feed</span>
-            </li>
-            <li class="nav-item" :class="{ active: currentView === 'bolsa' }" @click="currentView = 'bolsa'">
-              <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="12" cy="12" r="3"/><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/></svg>
-              <span>Bolsa de trabajo</span>
-            </li>
-            <li class="nav-item" :class="{ active: currentView === 'viajes' }" @click="currentView = 'viajes'">
-              <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a15 15 0 0 1 0 20 15 15 0 0 1 0-20z"/><path d="M2 12h20"/></svg>
-              <span>Viajes</span>
-            </li>
-            <li class="nav-item" :class="{ active: currentView === 'tai' }" @click="currentView = 'tai'">
-              <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
-              <span>Mi TAI</span>
-            </li>
-            <li class="nav-item" :class="{ active: currentView === 'familiares' }" @click="currentView = 'familiares'">
-              <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-              <span>Familiar</span>
-            </li>
-            <li class="nav-item" :class="{ active: currentView === 'db' }" @click="currentView = 'db'">
+            <li v-if="userProfile.admin" class="nav-item" :class="{ active: currentView === 'db' }" @click="currentView = 'db'">
               <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
               <span>Base de datos</span>
+            </li>
+            <li v-if="userProfile.admin" class="nav-item" :class="{ active: currentView === 'admin' }" @click="currentView = 'admin'">
+              <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+              <span>Panel Admin</span>
             </li>
           </ul>
         </nav>
@@ -109,7 +123,7 @@
 
       <template v-else-if="currentView === 'cuentas'">
         <main class="dynamic-full-content">
-          <EstadoCuentaView :userCi="userProfile.ci ? Number(userProfile.ci) : null" />
+          <EstadoCuentaView :userCi="userProfile.ci ? Number(userProfile.ci) : null" @pagarItem="(datos) => { transaccionActiva = datos; currentView = 'pago'; }" />
         </main>
       </template>
 
@@ -117,7 +131,7 @@
         <main class="dynamic-full-content">
           <div class="profile-main-view">
             <h2>Perfil Principal</h2>
-            <p class="profile-intro">Bienvenida, {{ userProfile.firstName }}. Aquí está tu información registrada en la base de datos.</p>
+            <p class="profile-intro">Bienvenida, {{ userProfile.firstName }}.</p>
 
             <section class="profile-card-panel profile-header-card">
               <div class="profile-header-main">
@@ -144,6 +158,7 @@
                 <div><strong>Primer nombre</strong><span>{{ displayValue(userProfile.firstName) }}</span></div>
                 <div><strong>Primer apellido</strong><span>{{ displayValue(userProfile.lastName) }}</span></div>
                 <div><strong>Categoría</strong><span>{{ displayValue(userProfile.category) }}</span></div>
+                <div><strong>Rol activo</strong><span class="role-badge">{{ displayValue(userProfile.activeRole) }}</span></div>
                 <div><strong>Estado de cuenta</strong><span>{{ displayValue(userProfile.accountStatus) }}</span></div>
               </div>
             </section>
@@ -184,6 +199,69 @@
                 </div>
               </div>
             </section>
+
+            <!-- Estudiante -->
+            <section v-if="userProfile.activeRole && userProfile.activeRole.startsWith('Estudiante')" class="profile-card-panel">
+              <div class="panel-section-header"><strong>Información del Estudiante</strong></div>
+              <div class="profile-summary-rows">
+                <div class="profile-summary-row"><strong>Semestre</strong><span>{{ userProfile.semestre ?? '—' }}</span></div>
+                <div class="profile-summary-row"><strong>Escuela</strong><span>{{ userProfile.escuela ?? '—' }}</span></div>
+                <div class="profile-summary-row"><strong>Unidades crédito aprobadas</strong><span>{{ userProfile.unidadesCredito ?? '—' }}</span></div>
+                <div class="profile-summary-row"><strong>Promedio ponderado</strong><span>{{ userProfile.promedioPonderado ?? '—' }}</span></div>
+                <div class="profile-summary-row"><strong>Facultad</strong><span>{{ userProfile.facultad ?? '—' }}</span></div>
+              </div>
+            </section>
+
+            <!-- Becario -->
+            <section v-if="userProfile.tipoBeca" class="profile-card-panel">
+              <div class="panel-section-header"><strong>Información de Beca</strong></div>
+              <div class="profile-summary-rows">
+                <div class="profile-summary-row"><strong>Tipo de beca</strong><span>{{ userProfile.tipoBeca ?? '—' }}</span></div>
+                <div class="profile-summary-row"><strong>Estatus de beca</strong><span class="role-badge" :class="userProfile.estatusBeca === 'activo' ? 'vigente' : 'finalizado'">{{ userProfile.estatusBeca ?? '—' }}</span></div>
+                <div class="profile-summary-row"><strong>Beneficio activo</strong><span>{{ userProfile.estatusBeneficio ? 'Sí' : 'No' }}</span></div>
+                <div class="profile-summary-row"><strong>Cumplimiento académico</strong><span>{{ userProfile.cumplimientoAcademico ? 'Sí' : 'No' }}</span></div>
+              </div>
+            </section>
+
+            <!-- Preparador -->
+            <section v-if="userProfile.asignatura" class="profile-card-panel">
+              <div class="panel-section-header"><strong>Información de Preparador</strong></div>
+              <div class="profile-summary-rows">
+                <div class="profile-summary-row"><strong>Asignatura asignada</strong><span>{{ userProfile.asignatura ?? '—' }}</span></div>
+                <div class="profile-summary-row"><strong>Horas de ayudantía</strong><span>{{ userProfile.horasAyudantia ?? '—' }}</span></div>
+              </div>
+            </section>
+
+            <!-- Profesor -->
+            <section v-if="userProfile.activeRole === 'Profesor'" class="profile-card-panel">
+              <div class="panel-section-header"><strong>Información del Profesor</strong></div>
+              <div class="profile-summary-rows">
+                <div class="profile-summary-row"><strong>Escalafón docente</strong><span>{{ userProfile.escalafon ?? '—' }}</span></div>
+                <div class="profile-summary-row"><strong>Código de investigador</strong><span>{{ userProfile.codigoInvestigador ?? '—' }}</span></div>
+                <div class="profile-summary-row"><strong>Carga horaria semanal</strong><span>{{ userProfile.cargaHoraria ?? '—' }}</span></div>
+              </div>
+            </section>
+
+            <!-- Personal Administrativo -->
+            <section v-if="userProfile.activeRole === 'Personal Administrativo'" class="profile-card-panel">
+              <div class="panel-section-header"><strong>Información del Personal Administrativo</strong></div>
+              <div class="profile-summary-rows">
+                <div class="profile-summary-row"><strong>Unidad de adscripción</strong><span>{{ userProfile.unidadAdscripcion ?? '—' }}</span></div>
+                <div class="profile-summary-row"><strong>Cargo administrativo</strong><span>{{ userProfile.cargoAdministrativo ?? '—' }}</span></div>
+                <div class="profile-summary-row"><strong>Carga horaria semanal</strong><span>{{ userProfile.cargaHoraria ?? '—' }}</span></div>
+              </div>
+            </section>
+
+            <!-- Egresado (siempre visible si hay datos) -->
+            <section v-if="userProfile.titulo" class="profile-card-panel">
+              <div class="panel-section-header"><strong>Información de Egresado</strong></div>
+              <div class="profile-summary-rows">
+                <div class="profile-summary-row"><strong>Título obtenido</strong><span>{{ userProfile.titulo ?? '—' }}</span></div>
+                <div class="profile-summary-row"><strong>Año de graduación</strong><span>{{ userProfile.anioGraduacion ?? '—' }}</span></div>
+                <div class="profile-summary-row"><strong>Índice académico final</strong><span>{{ userProfile.indiceAcademico ?? '—' }}</span></div>
+              </div>
+            </section>
+
             <div class="profile-actions">
               <button class="btn-action" @click="currentView = 'feed'">Ver novedades</button>
               <button class="btn-action" @click="currentView = 'solicitudes'">Ver solicitudes</button>
@@ -272,6 +350,7 @@
         <main class="dynamic-full-content">
           <Reservation
             :servicioReserva="recursoReservaActivo"
+            :userCi="userProfile.ci ? Number(userProfile.ci) : null"
             @solicitarPagoProcesado="handleFlujoPagoTransaccion"
           />
         </main>
@@ -285,14 +364,13 @@
 
       <template v-else-if="currentView === 'solicitudes'">
         <main class="dynamic-full-content">
-          <div class="view-card-container">
-            <h2>Mis solicitudes (temporal)</h2>
-            <p>Listado de solicitudes en desarrollo. Este es un acceso provisional al módulo de pagos.</p>
-            <div style="margin-top: 15px; display:flex; gap:12px;">
-              <button class="btn-action" @click="currentView = 'feed'">Volver al Feed</button>
-              <button class="btn-guardar-reserva" @click="irAPagoProvisional" style="background-color:#2cb5e8;">Ir a Pago (provisional)</button>
-            </div>
-          </div>
+          <MisSolicitudesView :userCi="userProfile.ci ? Number(userProfile.ci) : null" :activeRole="userProfile.activeRole" />
+        </main>
+      </template>
+
+      <template v-else-if="currentView === 'cursos'">
+        <main class="dynamic-full-content">
+          <CursosView :userCi="userProfile.ci ? Number(userProfile.ci) : null" :activeRole="userProfile.activeRole" />
         </main>
       </template>
 
@@ -314,13 +392,13 @@
         </main>
       </template>
 
-      <template v-else-if="currentView === 'familiares'">
+      <template v-else-if="currentView === 'familiares' && (userProfile.activeRole === 'Profesor' || userProfile.activeRole === 'Personal Administrativo')">
         <main class="dynamic-full-content">
           <FamiliaresView :userCi="userProfile.ci ? Number(userProfile.ci) : null" />
         </main>
       </template>
 
-      <template v-else-if="currentView === 'db'">
+      <template v-else-if="currentView === 'db' && userProfile.admin">
         <main class="dynamic-full-content">
           <div class="view-card-container db-browser">
             <h2>Explorador de Base de Datos</h2>
@@ -364,6 +442,18 @@
         </main>
       </template>
 
+      <template v-else-if="currentView === 'admin' && userProfile.admin">
+        <main class="dynamic-full-content">
+          <AdminView :userCi="userProfile.ci ? Number(userProfile.ci) : null" />
+        </main>
+      </template>
+
+      <template v-else-if="currentView === 'todosTramites' && (userProfile.admin || userProfile.activeRole === 'Personal Administrativo')">
+        <main class="dynamic-full-content">
+          <TodosTramitesView :userCi="userProfile.ci ? Number(userProfile.ci) : null" :esAdmin="(userProfile.admin || userProfile.activeRole === 'Personal Administrativo')" />
+        </main>
+      </template>
+
       <template v-else>
         <main class="dynamic-full-content">
           <div class="view-card-container">
@@ -389,6 +479,10 @@ import TravelView from './TravelView.vue';
 import TAIDetailView from './TAIDetailView.vue';
 import FamiliaresView from './FamiliaresView.vue';
 import BolsaTrabajoView from './BolsaTrabajoView.vue';
+import CursosView from './CursosView.vue';
+import AdminView from './AdminView.vue';
+import TodosTramitesView from './TodosTramitesView.vue';
+import MisSolicitudesView from './MisSolicitudesView.vue';
 
 const currentView = ref('feed');
 const searchQuery = ref('');
@@ -410,6 +504,29 @@ const userProfile = ref({
   phone: '',
   category: '',
   accountStatus: '',
+  activeRole: '',
+  admin: false,
+  rolFechaInicio: '',
+  rolFechaFin: '',
+  semestre: null,
+  escuela: '',
+  unidadesCredito: null,
+  promedioPonderado: null,
+  facultad: '',
+  tipoBeca: '',
+  estatusBeca: '',
+  estatusBeneficio: null,
+  cumplimientoAcademico: null,
+  asignatura: '',
+  horasAyudantia: '',
+  cargaHoraria: '',
+  escalafon: '',
+  codigoInvestigador: '',
+  unidadAdscripcion: '',
+  cargoAdministrativo: '',
+  titulo: '',
+  anioGraduacion: '',
+  indiceAcademico: null,
   lastConnection: ''
   ,passwordChangeDate: '',
   avatar: ''
@@ -494,6 +611,29 @@ async function loadUserProfile(authUser) {
       phone: profile.phone || '',
       category: profile.category || authUser.category || 'Miembro UCAB',
       accountStatus: profile.accountStatus || '',
+      activeRole: profile.activeRole || '',
+      admin: authUser.admin || false,
+      rolFechaInicio: profile.rolFechaInicio || '',
+      rolFechaFin: profile.rolFechaFin || '',
+      semestre: profile.semestre,
+      escuela: profile.escuela || '',
+      unidadesCredito: profile.unidadesCredito,
+      promedioPonderado: profile.promedioPonderado,
+      facultad: profile.facultad || '',
+      tipoBeca: profile.tipoBeca || '',
+      estatusBeca: profile.estatusBeca || '',
+      estatusBeneficio: profile.estatusBeneficio,
+      cumplimientoAcademico: profile.cumplimientoAcademico,
+      asignatura: profile.asignatura || '',
+      horasAyudantia: profile.horasAyudantia || '',
+      cargaHoraria: profile.cargaHoraria || '',
+      escalafon: profile.escalafon || '',
+      codigoInvestigador: profile.codigoInvestigador || '',
+      unidadAdscripcion: profile.unidadAdscripcion || '',
+      cargoAdministrativo: profile.cargoAdministrativo || '',
+      titulo: profile.titulo || '',
+      anioGraduacion: profile.anioGraduacion || '',
+      indiceAcademico: profile.indiceAcademico,
       lastConnection: profile.lastConnection || '',
       passwordChangeDate: profile.passwordChangeDate || ''
       ,avatar: profile.avatar || ''
@@ -545,6 +685,16 @@ onMounted(() => {
     phone: authUser.phone || '',
     category: authUser.category || 'Miembro UCAB',
     accountStatus: authUser.accountStatus || '',
+    activeRole: authUser.activeRole || '',
+    admin: authUser.admin || false,
+    rolFechaInicio: '',
+    rolFechaFin: '',
+    semestre: null, escuela: '', unidadesCredito: null, promedioPonderado: null, facultad: '',
+    tipoBeca: '', estatusBeca: '', estatusBeneficio: null, cumplimientoAcademico: null,
+    asignatura: '', horasAyudantia: '', cargaHoraria: '',
+    escalafon: '', codigoInvestigador: '',
+    unidadAdscripcion: '', cargoAdministrativo: '',
+    titulo: '', anioGraduacion: '', indiceAcademico: null,
     lastConnection: authUser.lastConnection || '',
     passwordChangeDate: authUser.passwordChangeDate || ''
     ,avatar: authUser.avatar || ''
@@ -573,7 +723,11 @@ const handleBeforeUnload = () => {
 
 const handleNavigate = (data) => {
   if (typeof data === 'object') {
-    recursoReservaActivo.value = data.servicio || null;
+    if (data.view === 'pago') {
+      transaccionActiva.value = data.servicio || null;
+    } else {
+      recursoReservaActivo.value = data.servicio || null;
+    }
     currentView.value = data.view;
   } else {
     recursoReservaActivo.value = null;
@@ -899,6 +1053,51 @@ const handleMoreInfo = (company) => console.log('Más info de:', company);
   text-align: center;
   box-shadow: inset 0 0 0 1px rgba(23, 58, 46, 0.08);
 }
+
+.role-badge {
+  background: #dcedc8;
+  color: #1b5e20;
+  border-radius: 999px;
+  padding: 4px 14px;
+  font-weight: 700;
+  font-size: 0.85rem;
+  display: inline-block;
+}
+
+.panel-section-header {
+  font-size: 1.1rem;
+  color: #173a2e;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(23, 58, 46, 0.12);
+}
+
+.profile-summary-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.profile-summary-rows .profile-summary-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 0;
+}
+
+.profile-summary-rows .profile-summary-row strong {
+  color: #173a2e;
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+.profile-summary-rows .profile-summary-row span {
+  color: #334155;
+  font-size: 0.9rem;
+}
+
+.vigente { background: #dcedc8 !important; color: #33691e !important; }
+.finalizado { background: #fce4ec !important; color: #c62828 !important; }
 
 .profile-header-tools {
   display: flex;

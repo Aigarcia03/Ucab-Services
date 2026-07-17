@@ -47,17 +47,6 @@
             <input v-model="nuevo.esquemaVacunacion" class="input-field" />
           </div>
         </template>
-
-        <template v-if="nuevo.parentesco === 'conyugue'">
-          <div class="form-group">
-            <label>Constancia estudios universitarios</label>
-            <input v-model="nuevo.constanciaEstudiosUniversitarios" class="input-field" />
-          </div>
-          <div class="form-group">
-            <label>Certificado de soltería</label>
-            <input v-model="nuevo.certificadoSolteria" class="input-field" />
-          </div>
-        </template>
       </div>
       <div class="form-actions">
         <button @click="guardar" :disabled="guardando" class="btn-guardar">
@@ -109,9 +98,7 @@ const nuevo = reactive({
   segundoApellido: '',
   fechaNacimiento: '',
   centroEducativoInicial: '',
-  esquemaVacunacion: '',
-  constanciaEstudiosUniversitarios: '',
-  certificadoSolteria: ''
+  esquemaVacunacion: ''
 });
 
 const cargarFamiliares = async () => {
@@ -140,15 +127,21 @@ const guardar = async () => {
     });
     const data = await res.json();
     if (res.ok) {
-      msgForm.value = data.mensaje || 'Familiar registrado.';
+      if (data.advertencia) {
+        msgForm.value = data.mensaje + ' ⚠️ ' + data.advertencia;
+      } else {
+        msgForm.value = data.mensaje || 'Familiar registrado.';
+      }
       msgError.value = false;
       Object.assign(nuevo, {
         parentesco: 'hijo', documentoIdentidad: '', primerNombre: '', primerApellido: '',
         segundoNombre: '', segundoApellido: '', fechaNacimiento: '',
-        centroEducativoInicial: '', esquemaVacunacion: '',
-        constanciaEstudiosUniversitarios: '', certificadoSolteria: ''
+        centroEducativoInicial: '', esquemaVacunacion: ''
       });
       await cargarFamiliares();
+    } else if (res.status === 403) {
+      msgForm.value = data.error || 'No tienes permiso para registrar este tipo de familiar.';
+      msgError.value = true;
     } else {
       msgForm.value = data.error || 'Error al registrar.';
       msgError.value = true;

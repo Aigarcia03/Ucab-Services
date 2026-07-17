@@ -2,6 +2,7 @@ package com.ucab.services.models;
 
 import jakarta.persistence.*;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "tramite")
@@ -25,8 +26,8 @@ public class Tramite {
     private String descripcion;
 
     @Id
-    @Column(name = "fechacreacion")
-    private LocalDate fechaCreacion;
+    @Column(name = "fechacreacion", columnDefinition = "TIMESTAMP")
+    private LocalDateTime fechaCreacion;
 
     @Column(name = "fechacierre")
     private LocalDate fechaCierre;
@@ -44,8 +45,8 @@ public class Tramite {
     public void setNombreCategoria(String nombreCategoria) { this.nombreCategoria = nombreCategoria; }
     public String getDescripcion() { return descripcion; }
     public void setDescripcion(String descripcion) { this.descripcion = descripcion; }
-    public LocalDate getFechaCreacion() { return fechaCreacion; }
-    public void setFechaCreacion(LocalDate fechaCreacion) { this.fechaCreacion = fechaCreacion; }
+    public LocalDateTime getFechaCreacion() { return fechaCreacion; }
+    public void setFechaCreacion(LocalDateTime fechaCreacion) { this.fechaCreacion = fechaCreacion; }
     public LocalDate getFechaCierre() { return fechaCierre; }
     public void setFechaCierre(LocalDate fechaCierre) { this.fechaCierre = fechaCierre; }
     public String getEstado() { return estado; }

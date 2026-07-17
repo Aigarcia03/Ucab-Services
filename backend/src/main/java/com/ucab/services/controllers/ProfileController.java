@@ -34,10 +34,36 @@ public class ProfileController {
                 .body(Map.of("error", "Debes enviar el correo institucional o la CI del miembro."));
         }
 
-        String sql = "SELECT CI, PrimerNombre, SegundoNombre, PrimerApellido, SegundoApellido, Sexo, " +
-                     "CorreoInstitucional, DireccionHabitacion, FechaNacimiento, Telefono, Categoria, " +
-                     "EstadoCuenta, UltimaConexion, FechaCambioContraseña, avatar " +
-                     "FROM Miembro WHERE CorreoInstitucional = ? OR CI = ?";
+        String sql = "SELECT m.CI, m.PrimerNombre, m.SegundoNombre, m.PrimerApellido, m.SegundoApellido, m.Sexo, " +
+                     "m.CorreoInstitucional, m.DireccionHabitacion, m.FechaNacimiento, m.Telefono, m.Categoria, " +
+                     "m.EstadoCuenta, m.UltimaConexion, m.FechaCambioContraseña, m.Foto, " +
+                     "r.FechaInicio AS rolFechaInicio, r.FechaFin AS rolFechaFin, " +
+                     "est.Semestre, est.Escuela, est.UnidadesCreditoAprobadas, est.PromedioPonderado, est.FacultadAdscripcion, " +
+                     "b.TipoBeca, b.EstatusBeca, b.EstatusBeneficio, b.CumplimientoAcademico, " +
+                     "pre.Asignatura, pre.HorasAyudantia, " +
+                     "e.CargaHorariaSemanal, " +
+                     "pr.EscalafonDocente, pr.CodigoInvestigador, " +
+                     "pa.UnidadAdscripcionPresupuestaria, pa.CargoAdministrativo, " +
+                     "eg.Titulo, eg.AñoGraduacion, eg.IndiceAcademicoFinal, " +
+                     "CASE " +
+                     "  WHEN b.CI IS NOT NULL THEN 'Estudiante (Becario)' " +
+                     "  WHEN pre.CI IS NOT NULL THEN 'Estudiante (Preparador)' " +
+                     "  WHEN est.CI IS NOT NULL THEN 'Estudiante' " +
+                     "  WHEN pr.CI IS NOT NULL THEN 'Profesor' " +
+                     "  WHEN pa.CI IS NOT NULL THEN 'Personal Administrativo' " +
+                     "  WHEN e.CI IS NOT NULL THEN 'Empleado' " +
+                     "  ELSE 'Miembro' " +
+                     "END AS activeRole " +
+                     "FROM Miembro m " +
+                     "LEFT JOIN Rol r ON m.CI = r.CI AND r.FechaFin IS NULL " +
+                     "LEFT JOIN Estudiante est ON est.CI = r.CI AND est.FechaInicio = r.FechaInicio " +
+                     "LEFT JOIN Becario b ON b.CI = est.CI AND b.FechaInicio = est.FechaInicio " +
+                     "LEFT JOIN Preparador pre ON pre.CI = est.CI AND pre.FechaInicio = est.FechaInicio " +
+                     "LEFT JOIN Empleado e ON e.CI = r.CI AND e.FechaInicio = r.FechaInicio " +
+                     "LEFT JOIN Profesor pr ON pr.CI = e.CI AND pr.FechaInicio = e.FechaInicio " +
+                     "LEFT JOIN PersonalAdministrativo pa ON pa.CI = e.CI AND pa.FechaInicio = e.FechaInicio " +
+                     "LEFT JOIN Egresado eg ON eg.CI = m.CI " +
+                     "WHERE m.CorreoInstitucional = ? OR m.CI = ?";
         List<Map<String, Object>> results = jdbcTemplate.query(sql,
                 ps -> {
                     ps.setString(1, email != null ? email : "");
@@ -62,10 +88,32 @@ public class ProfileController {
                     profile.put("phone", rs.getString("Telefono"));
                     profile.put("category", rs.getString("Categoria"));
                     profile.put("accountStatus", rs.getString("EstadoCuenta"));
+                    profile.put("activeRole", rs.getString("activeRole"));
+                    profile.put("rolFechaInicio", rs.getDate("rolFechaInicio") != null ? rs.getDate("rolFechaInicio").toString() : null);
+                    profile.put("rolFechaFin", rs.getDate("rolFechaFin") != null ? rs.getDate("rolFechaFin").toString() : null);
+                    profile.put("semestre", rs.getObject("Semestre"));
+                    profile.put("escuela", rs.getString("Escuela"));
+                    profile.put("unidadesCredito", rs.getObject("UnidadesCreditoAprobadas"));
+                    profile.put("promedioPonderado", rs.getObject("PromedioPonderado"));
+                    profile.put("facultad", rs.getString("FacultadAdscripcion"));
+                    profile.put("tipoBeca", rs.getString("TipoBeca"));
+                    profile.put("estatusBeca", rs.getString("EstatusBeca"));
+                    profile.put("estatusBeneficio", rs.getObject("EstatusBeneficio"));
+                    profile.put("cumplimientoAcademico", rs.getObject("CumplimientoAcademico"));
+                    profile.put("asignatura", rs.getString("Asignatura"));
+                    profile.put("horasAyudantia", rs.getObject("HorasAyudantia"));
+                    profile.put("cargaHoraria", rs.getString("CargaHorariaSemanal"));
+                    profile.put("escalafon", rs.getString("EscalafonDocente"));
+                    profile.put("codigoInvestigador", rs.getString("CodigoInvestigador"));
+                    profile.put("unidadAdscripcion", rs.getString("UnidadAdscripcionPresupuestaria"));
+                    profile.put("cargoAdministrativo", rs.getString("CargoAdministrativo"));
+                    profile.put("titulo", rs.getString("Titulo"));
+                    profile.put("anioGraduacion", rs.getDate("AñoGraduacion") != null ? rs.getDate("AñoGraduacion").toString() : null);
+                    profile.put("indiceAcademico", rs.getObject("IndiceAcademicoFinal"));
                     profile.put("lastConnection", rs.getString("UltimaConexion"));
                     profile.put("passwordChangeDate", rs.getTimestamp("FechaCambioContraseña") != null
                             ? rs.getTimestamp("FechaCambioContraseña").toString() : null);
-                    byte[] avatarBytes = rs.getBytes("avatar");
+                    byte[] avatarBytes = rs.getBytes("Foto");
                     profile.put("avatar", avatarBytes != null ? toImageDataUrl(avatarBytes) : null);
                     return profile;
                 });
@@ -94,7 +142,7 @@ public class ProfileController {
 
             int ci = Integer.parseInt(String.valueOf(ciValue));
             byte[] avatarBytes = decodeAvatarPayload(avatarData);
-            String sql = "UPDATE Miembro SET avatar = ? WHERE CI = ?";
+            String sql = "UPDATE Miembro SET Foto = ? WHERE CI = ?";
             int updatedRows = jdbcTemplate.update(sql, avatarBytes, ci);
 
             if (updatedRows == 0) {

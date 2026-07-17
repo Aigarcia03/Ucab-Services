@@ -2,42 +2,6 @@
   <div class="bolsa-wrapper">
     <div class="bolsa-header">
       <h2 class="page-title">Bolsa de trabajo</h2>
-      <button @click="mostrarPublicar = !mostrarPublicar" class="btn-toggle-pub">
-        {{ mostrarPublicar ? 'Cancelar' : 'Publicar oferta' }}
-      </button>
-    </div>
-
-    <div v-if="mostrarPublicar" class="pub-section">
-      <div class="pub-form">
-        <div class="form-row">
-          <div class="form-group">
-            <label>RIF</label>
-            <input v-model="nuevaOferta.rif" class="input-field" placeholder="123456789" />
-          </div>
-          <div class="form-group">
-            <label>Cargo</label>
-            <input v-model="nuevaOferta.cargo" class="input-field" placeholder="Analista de datos" />
-          </div>
-        </div>
-        <div class="form-group">
-          <label>Perfil buscado</label>
-          <textarea v-model="nuevaOferta.perfilBuscado" class="input-field area" rows="2" placeholder="Descripción del perfil..."></textarea>
-        </div>
-        <div class="form-group">
-          <label>Responsabilidades</label>
-          <textarea v-model="nuevaOferta.responsabilidades" class="input-field area" rows="2" placeholder="Responsabilidades del cargo..."></textarea>
-        </div>
-        <div class="form-group">
-          <label>Beneficios</label>
-          <textarea v-model="nuevaOferta.beneficios" class="input-field area" rows="2" placeholder="Beneficios ofrecidos..."></textarea>
-        </div>
-        <div class="form-actions">
-          <button @click="publicar" :disabled="publicando" class="btn-publicar">
-            {{ publicando ? 'Publicando...' : 'Publicar oferta' }}
-          </button>
-        </div>
-        <p v-if="msgPub" class="form-msg" :class="msgPubError ? 'error' : 'exito'">{{ msgPub }}</p>
-      </div>
     </div>
 
     <div v-if="oportunidades.length === 0" class="empty-state">No hay ofertas publicadas.</div>
@@ -70,8 +34,9 @@
             </div>
           </div>
           <div class="form-group">
-            <label>Curriculum (texto)</label>
-            <textarea v-model="aplicacion.curriculum" class="input-field area" rows="3" placeholder="Tu formación, experiencia, etc..."></textarea>
+            <label>Curriculum (PDF o imagen)</label>
+            <input type="file" accept=".pdf,image/*" @change="onCurriculumChange" class="input-field" />
+            <span v-if="aplicacion.curriculumName" class="file-name">{{ aplicacion.curriculumName }}</span>
           </div>
           <div class="form-actions">
             <button @click="aplicar(o)" :disabled="aplicando" class="btn-aplicar">
@@ -89,18 +54,25 @@
 import { ref, onMounted } from 'vue';
 
 const oportunidades = ref([]);
-const publicando = ref(false);
 const aplicando = ref(false);
 const aplicandoOferta = ref(null);
-const mostrarPublicar = ref(false);
 const ofertaAbierta = ref(null);
-const msgPub = ref('');
-const msgPubError = ref(false);
 const msgApl = ref('');
 const msgAplError = ref(false);
 
-const nuevaOferta = ref({ rif: '', cargo: '', perfilBuscado: '', responsabilidades: '', beneficios: '' });
-const aplicacion = ref({ ci: '', curriculum: '' });
+const aplicacion = ref({ ci: '', curriculum: '', curriculumName: '' });
+
+function onCurriculumChange(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  aplicacion.value.curriculumName = file.name;
+  const reader = new FileReader();
+  reader.onload = () => {
+    const base64 = reader.result.split(',')[1];
+    aplicacion.value.curriculum = base64;
+  };
+  reader.readAsDataURL(file);
+}
 
 const cargarOfertas = async () => {
   try {
@@ -111,30 +83,9 @@ const cargarOfertas = async () => {
   }
 };
 
-const publicar = async () => {
-  const o = nuevaOferta.value;
-  if (!o.rif || !o.cargo || !o.perfilBuscado || !o.responsabilidades || !o.beneficios) {
-    msgPub.value = 'Completa todos los campos.'; msgPubError.value = true; return;
-  }
-  publicando.value = true; msgPub.value = '';
-  try {
-    const res = await fetch('http://localhost:8080/api/bolsa/oportunidades', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(o)
-    });
-    const data = await res.json();
-    if (res.ok) {
-      msgPub.value = data.mensaje; msgPubError.value = false;
-      nuevaOferta.value = { rif: '', cargo: '', perfilBuscado: '', responsabilidades: '', beneficios: '' };
-      await cargarOfertas();
-    } else { msgPub.value = data.error; msgPubError.value = true; }
-  } catch (e) { msgPub.value = 'Error de conexión.'; msgPubError.value = true; }
-  finally { publicando.value = false; }
-};
-
 const toggleAplicar = (i) => {
   ofertaAbierta.value = ofertaAbierta.value === i ? null : i;
-  aplicacion.value = { ci: '', curriculum: '' };
+  aplicacion.value = { ci: '', curriculum: '', curriculumName: '' };
   msgApl.value = '';
 };
 
@@ -149,7 +100,7 @@ const aplicar = async (o) => {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         rif: o.rif,
-        fechaHoraOferta: o.fechahoraoferta,
+        cargo: o.cargo,
         ci: aplicacion.value.ci,
         curriculum: aplicacion.value.curriculum
       })
@@ -157,7 +108,7 @@ const aplicar = async (o) => {
     const data = await res.json();
     if (res.ok) {
       msgApl.value = data.mensaje; msgAplError.value = false;
-      aplicacion.value = { ci: '', curriculum: '' };
+      aplicacion.value = { ci: '', curriculum: '', curriculumName: '' };
     } else { msgApl.value = data.error; msgAplError.value = true; }
   } catch (e) { msgApl.value = 'Error de conexión.'; msgAplError.value = true; }
   finally { aplicando.value = false; }
@@ -177,32 +128,6 @@ onMounted(cargarOfertas);
   display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px;
 }
 .page-title { color: #173a2e; font-size: 28px; margin: 0; }
-.btn-toggle-pub {
-  background: #2cb5e8; color: white; border: none; border-radius: 14px;
-  padding: 8px 20px; font-weight: 700; cursor: pointer; font-size: 0.9rem;
-}
-.btn-toggle-pub:hover { background: #1ba3d4; }
-.pub-section {
-  background: white; border-radius: 16px; padding: 24px;
-  margin-bottom: 18px; box-shadow: 0 4px 8px rgba(0,0,0,0.04);
-}
-.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-.form-group { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; }
-.form-group label { font-size: 0.85rem; font-weight: 600; color: #173a2e; }
-.input-field {
-  padding: 10px 14px; border-radius: 12px; border: 1px solid #dcedc8;
-  outline: none; font-size: 0.9rem; width: 100%; box-sizing: border-box;
-}
-.input-field.area { resize: vertical; font-family: inherit; }
-.form-actions { display: flex; justify-content: flex-end; margin-top: 6px; }
-.btn-publicar {
-  background: linear-gradient(135deg, #2cb5e8, #1ba3d4); color: white;
-  border: none; border-radius: 14px; padding: 10px 28px; font-weight: 700; cursor: pointer;
-}
-.btn-publicar:disabled { opacity: 0.5; cursor: not-allowed; }
-.form-msg { margin-top: 8px; font-weight: 600; font-size: 0.9rem; }
-.form-msg.exito { color: #2e7d32; }
-.form-msg.error { color: #c62828; }
 .empty-state { background: white; border-radius: 16px; padding: 40px; text-align: center; color: #666; }
 .oferta-card {
   background: white; border-radius: 14px; padding: 18px 22px;
@@ -235,4 +160,5 @@ onMounted(cargarOfertas);
   border: none; border-radius: 14px; padding: 10px 28px; font-weight: 700; cursor: pointer;
 }
 .btn-aplicar:disabled { opacity: 0.5; cursor: not-allowed; }
+.file-name { font-size: 0.8rem; color: #2e7d32; font-weight: 600; margin-top: 4px; }
 </style>

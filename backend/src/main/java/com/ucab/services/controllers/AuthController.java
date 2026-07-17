@@ -1,28 +1,24 @@
 package com.ucab.services.controllers;
 
-import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
-import java.time.Duration;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.sql.Date;
 import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -36,13 +32,49 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<Map<String, Object>> login(@RequestBody Map<String, String> payload,
-                                                     HttpServletRequest request) {
+    public ResponseEntity<Map<String, Object>> login(@RequestBody Map<String, String> payload) {
         String email = payload.get("usuario");
         String password = payload.get("contrasena");
 
+        // Verificar bloqueo por intentos fallidos con timeout de 10 minutos
+        try {
+            List<Integer> ciList = jdbcTemplate.queryForList(
+                "SELECT CI FROM Miembro WHERE CorreoInstitucional = ?", Integer.class, email);
+            if (!ciList.isEmpty()) {
+                int miembroCi = ciList.get(0);
+                List<Map<String, Object>> sesion = jdbcTemplate.queryForList(
+                    "SELECT ConteoIntentosFallidos, FechaInicio FROM Sesion WHERE CI = ? AND FechaFin IS NULL ORDER BY FechaInicio DESC LIMIT 1",
+                    miembroCi);
+                if (!sesion.isEmpty()) {
+                    int intentos = sesion.get(0).get("conteointentosfallidos") != null
+                        ? ((Number) sesion.get(0).get("conteointentosfallidos")).intValue() : 0;
+                    if (intentos >= 3) {
+                        Object fechaInicioObj = sesion.get(0).get("fechainicio");
+                        if (fechaInicioObj != null) {
+                            LocalDateTime fechaInicio;
+                            if (fechaInicioObj instanceof java.sql.Timestamp) {
+                                fechaInicio = ((java.sql.Timestamp) fechaInicioObj).toLocalDateTime();
+                            } else if (fechaInicioObj instanceof LocalDateTime) {
+                                fechaInicio = (LocalDateTime) fechaInicioObj;
+                            } else {
+                                fechaInicio = LocalDateTime.parse(fechaInicioObj.toString());
+                            }
+                            if (fechaInicio.isAfter(LocalDateTime.now().minusMinutes(10))) {
+                                return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                                    .body(Map.of("error", "Demasiados intentos. Intente de nuevo en 10 minutos."));
+                            } else {
+                                jdbcTemplate.update("UPDATE Sesion SET ConteoIntentosFallidos = 0 WHERE CI = ? AND FechaFin IS NULL", miembroCi);
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            logger.warn("Error al verificar intentos fallidos: {}", e.getMessage());
+        }
+
         String sql = "SELECT CI, PrimerNombre, PrimerApellido, CorreoInstitucional, Categoria " +
-                     "FROM Miembro WHERE CorreoInstitucional = ? AND contrasena = ?";
+                     "FROM Miembro WHERE CorreoInstitucional = ? AND Contraseña = ?";
         List<Map<String, Object>> results = jdbcTemplate.query(sql,
                 ps -> { ps.setString(1, email); ps.setString(2, password); },
                 (rs, rowNum) -> {
@@ -56,39 +88,81 @@ public class AuthController {
                 });
 
         if (results.isEmpty()) {
+            // Registrar intento fallido
+            try {
+                List<Integer> ciList = jdbcTemplate.queryForList(
+                    "SELECT CI FROM Miembro WHERE CorreoInstitucional = ?", Integer.class, email);
+                if (!ciList.isEmpty()) {
+                    int miembroCi = ciList.get(0);
+                    jdbcTemplate.update(
+                        "UPDATE Sesion SET ConteoIntentosFallidos = COALESCE(ConteoIntentosFallidos, 0) + 1 WHERE CI = ? AND FechaFin IS NULL",
+                        miembroCi);
+                }
+            } catch (Exception e) {
+                logger.warn("No se pudo registrar intento fallido: {}", e.getMessage());
+            }
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                 .body(Map.of("error", "Credenciales inválidas"));
         }
 
         Map<String, Object> authenticatedUser = results.get(0);
         Integer ci = (Integer) authenticatedUser.get("ci");
+
+        // Resetear intentos y crear nueva sesión
         if (ci != null) {
             try {
+                jdbcTemplate.update("UPDATE Sesion SET ConteoIntentosFallidos = 0 WHERE CI = ? AND FechaFin IS NULL", ci);
                 closeLatestOpenSession(ci);
-                createNewSession(ci, resolveClientIp(request));
+                crearSesion(ci);
             } catch (Exception e) {
-                logger.error("No se pudo registrar la sesión para CI {}", ci, e);
+                logger.error("No se pudo crear la sesión para CI {}", ci, e);
                 return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("error", "No se pudo registrar la sesión de usuario. Intenta de nuevo.",
+                    .body(Map.of("error", "No se pudo registrar la sesión de usuario.",
                                  "detail", e.getMessage()));
             }
         }
 
+        // Identificar administrador
+        String adminEmail = "admin@ucab.edu.ve";
+        Object emailObj = authenticatedUser.get("email");
+        boolean isAdmin = emailObj != null && adminEmail.equalsIgnoreCase(emailObj.toString());
+        authenticatedUser.put("admin", isAdmin);
+
         return ResponseEntity.ok(authenticatedUser);
+    }
+
+    @GetMapping("/check-ci/{ci}")
+    public ResponseEntity<Map<String, Object>> checkCi(@PathVariable Integer ci) {
+        try {
+            Integer count = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM Miembro WHERE CI = ?", Integer.class, ci);
+            return ResponseEntity.ok(Map.of("exists", count != null && count > 0));
+        } catch (Exception e) {
+            return ResponseEntity.ok(Map.of("exists", false, "error", e.getMessage()));
+        }
     }
 
     @PostMapping("/register")
     public ResponseEntity<Map<String, Object>> register(@RequestBody Map<String, Object> payload) {
         try {
             int ci = Integer.parseInt(String.valueOf(payload.get("CI")));
+
+            Integer existente = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM Miembro WHERE CI = ?", Integer.class, ci);
+            if (existente != null && existente > 0) {
+                return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(Map.of("error", "La cédula ya está registrada."));
+            }
+
             String primerNombre = String.valueOf(payload.get("PrimerNombre"));
             String primerApellido = String.valueOf(payload.get("PrimerApellido"));
             String sexo = String.valueOf(payload.get("Sexo"));
             String correo = String.valueOf(payload.get("CorreoInstitucional"));
+            if (!correo.toLowerCase().endsWith("@ucab.edu.ve") && !correo.toLowerCase().endsWith("@est.ucab.edu.ve")) {
+                return ResponseEntity.badRequest().body(Map.of("error", "El correo debe tener dominio institucional (@ucab.edu.ve o @est.ucab.edu.ve)"));
+            }
             String direccion = String.valueOf(payload.get("DireccionHabitacion"));
             String fechaNacimientoStr = String.valueOf(payload.get("FechaNacimiento"));
             String telefono = String.valueOf(payload.get("Telefono"));
-            String categoria = String.valueOf(payload.get("Categoria"));
+            String categoria = String.valueOf(payload.getOrDefault("Categoria", "frecuente"));
             String contrasenia = String.valueOf(payload.get("contrasena"));
 
             try {
@@ -107,8 +181,9 @@ public class AuthController {
                 throw new IllegalArgumentException("Formato inválido para FechaNacimiento. Use YYYY-MM-DD.");
             }
 
-            String sql = "INSERT INTO Miembro (CI, PrimerNombre, PrimerApellido, Sexo, CorreoInstitucional, DireccionHabitacion, FechaNacimiento, Telefono, Categoria, UltimaConexion, contrasena) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-            jdbcTemplate.update(sql, ci, primerNombre, primerApellido, sexo, correo, direccion, fechaNacimiento, telefono, categoria, "Nunca", contrasenia);
+            int uuidReg = (int) (System.currentTimeMillis() % 1000000);
+            String sql = "WITH ins_miembro AS (INSERT INTO Miembro (CI, PrimerNombre, PrimerApellido, Sexo, CorreoInstitucional, DireccionHabitacion, FechaNacimiento, Telefono, Categoria, UltimaConexion, Contraseña) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING CI) INSERT INTO Sesion (CI, FechaInicio, Geolocalizacion, UUID, ConteoIntentosFallidos) SELECT CI, CURRENT_TIMESTAMP, ?, ?, 0 FROM ins_miembro";
+            jdbcTemplate.update(sql, ci, primerNombre, primerApellido, sexo, correo, direccion, fechaNacimiento, telefono, categoria, "Nunca", contrasenia, "Registro inicial", uuidReg);
 
             Map<String, Object> user = new HashMap<>();
             user.put("ci", ci);
@@ -151,75 +226,18 @@ public class AuthController {
         }
     }
 
-    private void createNewSession(int ci, String clientIp) {
-        String uuid = UUID.randomUUID().toString();
-        String geo = resolveGeolocalizacion(clientIp);
-        logger.info("Creando sesión - CI: {}, IP: {}, Geo: {}, UUID: {}", ci, clientIp, geo, uuid);
+    private void crearSesion(int ci) {
+        int uuidSes = (int) (System.currentTimeMillis() % 1000000);
         jdbcTemplate.update(
-            "INSERT INTO sesion (ci, fechainicio, fechafin, ip, geolocalizacion, uuid, protocoloproteccion, mfa, conteointentosfallidos) VALUES (?, CURRENT_TIMESTAMP, NULL, ?, ?, ?, ?, ?, ?)",
-            ci, clientIp, geo, uuid, Boolean.FALSE, "pendiente", 0
+            "INSERT INTO Sesion (CI, FechaInicio, Geolocalizacion, UUID, ConteoIntentosFallidos) VALUES (?, CURRENT_TIMESTAMP, ?, ?, ?)",
+            ci, "Entorno local", uuidSes, 0
         );
     }
 
     private int closeLatestOpenSession(int ci) {
-        String sql = "UPDATE sesion SET fechafin = CURRENT_TIMESTAMP WHERE ci = ? AND fechafin IS NULL " +
-                     "AND fechainicio = (SELECT MAX(fechainicio) FROM sesion WHERE ci = ? AND fechafin IS NULL)";
+        String sql = "UPDATE Sesion SET FechaFin = CURRENT_TIMESTAMP WHERE CI = ? AND FechaFin IS NULL " +
+                     "AND FechaInicio = (SELECT MAX(FechaInicio) FROM Sesion WHERE CI = ? AND FechaFin IS NULL)";
         return jdbcTemplate.update(sql, ci, ci);
     }
 
-    private String resolveClientIp(HttpServletRequest request) {
-        if (request == null) return "0.0.0.0";
-
-        String forwarded = request.getHeader("X-Forwarded-For");
-        if (forwarded != null && !forwarded.isBlank()) {
-            return forwarded.split(",")[0].trim();
-        }
-
-        String realIp = request.getHeader("X-Real-IP");
-        if (realIp != null && !realIp.isBlank()) {
-            return realIp.trim();
-        }
-
-        String remoteAddr = request.getRemoteAddr();
-        return (remoteAddr == null || remoteAddr.isBlank()) ? "0.0.0.0" : remoteAddr;
-    }
-
-    private String resolveGeolocalizacion(String clientIp) {
-        if (clientIp == null || clientIp.equals("0.0.0.0") || clientIp.equals("127.0.0.1") || clientIp.equals("::1")) {
-            return "Entorno local";
-        }
-        try {
-            HttpClient client = HttpClient.newHttpClient();
-            HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create("http://ip-api.com/json/" + clientIp + "?fields=city,regionName,country"))
-                .timeout(Duration.ofSeconds(3))
-                .GET()
-                .build();
-            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
-            if (response.statusCode() == 200) {
-                String body = response.body();
-                String city = extractJsonStr(body, "city");
-                String region = extractJsonStr(body, "regionName");
-                String country = extractJsonStr(body, "country");
-                if (city != null && !city.isEmpty() && country != null && !country.isEmpty()) {
-                    String geo = region != null && !region.isEmpty() && !region.equals(city)
-                        ? city + ", " + region + ", " + country
-                        : city + ", " + country;
-                    return geo.length() > 50 ? geo.substring(0, 50) : geo;
-                }
-            }
-        } catch (Exception e) {
-            logger.warn("No se pudo obtener geolocalización para IP {}: {}", clientIp, e.getMessage());
-        }
-        return "No disponible";
-    }
-
-    private String extractJsonStr(String json, String key) {
-        String search = "\"" + key + "\":\"";
-        int start = json.indexOf(search);
-        if (start == -1) return null;
-        start += search.length();
-        int end = json.indexOf("\"", start);
-        return end == -1 ? null : json.substring(start, end);
-    }
 }

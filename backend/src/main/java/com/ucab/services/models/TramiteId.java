@@ -1,7 +1,7 @@
 package com.ucab.services.models;
 
 import java.io.Serializable;
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.Objects;
 
 public class TramiteId implements Serializable {
@@ -9,11 +9,11 @@ public class TramiteId implements Serializable {
     private Integer idPrestadora;
     private String nombreCategoria;
     private String descripcion;
-    private LocalDate fechaCreacion;
+    private LocalDateTime fechaCreacion;
 
     public TramiteId() {}
 
-    public TramiteId(Integer ci, Integer idPrestadora, String nombreCategoria, String descripcion, LocalDate fechaCreacion) {
+    public TramiteId(Integer ci, Integer idPrestadora, String nombreCategoria, String descripcion, LocalDateTime fechaCreacion) {
         this.ci = ci;
         this.idPrestadora = idPrestadora;
         this.nombreCategoria = nombreCategoria;
@@ -29,8 +29,8 @@ public class TramiteId implements Serializable {
     public void setNombreCategoria(String nombreCategoria) { this.nombreCategoria = nombreCategoria; }
     public String getDescripcion() { return descripcion; }
     public void setDescripcion(String descripcion) { this.descripcion = descripcion; }
-    public LocalDate getFechaCreacion() { return fechaCreacion; }
-    public void setFechaCreacion(LocalDate fechaCreacion) { this.fechaCreacion = fechaCreacion; }
+    public LocalDateTime getFechaCreacion() { return fechaCreacion; }
+    public void setFechaCreacion(LocalDateTime fechaCreacion) { this.fechaCreacion = fechaCreacion; }
 
     @Override
     public boolean equals(Object o) {

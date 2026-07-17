@@ -1,15 +1,26 @@
 import { reactive } from 'vue';
 
+function getField(obj, key) {
+  if (obj == null) return undefined;
+  if (Object.prototype.hasOwnProperty.call(obj, key)) return obj[key];
+  const lower = key.toLowerCase();
+  for (const k of Object.keys(obj)) {
+    if (k.toLowerCase() === lower) return obj[k];
+  }
+  return undefined;
+}
+
 const state = reactive({
   pendientes: []
 });
 
 export const estadoCuentaStore = {
   get pendientes() {
-    return state.pendientes;
+    return state.pendientes.filter(item => item.estado === 'activo');
   },
   get saldoTotal() {
-    return state.pendientes.reduce((total, item) => total + (item.precioBase || 0), 0);
+    return state.pendientes.filter(item => item.estado === 'activo')
+      .reduce((total, item) => total + (item.precioBase || 0), 0);
   },
 
   // Called on mount for Estado de Cuenta view — loads from DB
@@ -21,12 +32,17 @@ export const estadoCuentaStore = {
         const tramites = await res.json();
         // Replace local state with DB data (avoid duplicates on re-open)
         state.pendientes = tramites.map(t => ({
-          id: `${t.ci}-${t.fechaCreacion}-${t.idPrestadora}`,
-          titulo: t.descripcion ? t.descripcion.split('.')[0].trim() : t.nombreCategoria,
-          descripcion: t.descripcion,
-          precioBase: t.precioBase ?? 0,
-          fecha: t.fechaCreacion,
-          estado: t.estado
+          id: `${getField(t, 'ci')}-${getField(t, 'fechaCreacion')}-${getField(t, 'idPrestadora')}`,
+          titulo: getField(t, 'descripcion') ? getField(t, 'descripcion').split('.')[0].trim() : getField(t, 'nombreCategoria'),
+          descripcion: getField(t, 'descripcion'),
+          precioBase: getField(t, 'precioBase') ?? 0,
+          fecha: getField(t, 'fechaCreacion'),
+          estado: getField(t, 'estado'),
+          ci: getField(t, 'ci'),
+          idPrestadora: getField(t, 'idPrestadora'),
+          nombreCategoria: getField(t, 'nombreCategoria'),
+          descripcionTramite: getField(t, 'descripcion'),
+          fechaCreacion: getField(t, 'fechaCreacion')
         }));
       }
     } catch (e) {

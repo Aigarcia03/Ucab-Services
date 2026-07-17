@@ -7,6 +7,7 @@
           <option value="">Todos</option>
           <option value="Estudiantil">Estudiantil</option>
           <option value="Laboratorios">Laboratorios</option>
+          <option value="Reservas">Reservas</option>
         </select>
       </div>
       <div class="filter-group filter-tags">
@@ -35,7 +36,7 @@
           </template>
 
           <button
-            v-else-if="servicio.nombreCategoria === 'Laboratorios'"
+            v-else-if="servicio.nombreCategoria === 'Reservas'"
             class="btn-action btn-reservar"
             @click="handleReservar(servicio)"
           >
@@ -44,10 +45,11 @@
 
           <button
             v-else
-            class="btn-action btn-pagar"
-            @click="handlePagar(servicio)"
+            class="btn-action btn-contratar"
+            :disabled="procesandoContratar"
+            @click="contratar(servicio)"
           >
-            Pagar
+            {{ procesandoContratar ? 'Procesando...' : 'Contratar' }}
           </button>
         </div>
       </div>
@@ -56,6 +58,8 @@
         <p>No se encontraron servicios para esta categoría.</p>
       </div>
     </div>
+
+    <p v-if="msgModal" class="modal-msg" :class="msgModalError ? 'error' : 'exito'">{{ msgModal }}</p>
   </div>
 </template>
 
@@ -68,6 +72,9 @@ const emit = defineEmits(['navigate', 'pagar']);
 
 const selectedCategory = ref('');
 const servicios = ref([]);
+const procesandoContratar = ref(false);
+const msgModal = ref('');
+const msgModalError = ref(false);
 
 const fetchServices = async () => {
   try {
@@ -122,6 +129,47 @@ const handlePagar = (servicio) => {
     monto: servicio.precioBase,
     detalles: { categoria: servicio.nombreCategoria }
   });
+};
+
+const contratar = async (servicio) => {
+  procesandoContratar.value = true;
+  msgModal.value = '';
+  msgModalError.value = false;
+  try {
+    const res = await fetch('http://localhost:8080/api/servicios/contratar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ci: props.userCi,
+        nombreCategoria: servicio.nombreCategoria,
+        descripcion: servicio.descripcion,
+        idPrestadora: servicio.idPrestadora
+      })
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      msgModal.value = data.error || 'Error al contratar';
+      msgModalError.value = true;
+      return;
+    }
+    emit('navigate', {
+      view: 'pago',
+      servicio: {
+        descripcion: servicio.descripcion,
+        monto: servicio.precioBase,
+        ci: props.userCi,
+        idPrestadora: servicio.idPrestadora,
+        nombreCategoria: servicio.nombreCategoria,
+        descripcionTramite: servicio.descripcion,
+        fechaCreacion: data.fechaCreacion
+      }
+    });
+  } catch (e) {
+    msgModal.value = 'Error de conexión con el servidor.';
+    msgModalError.value = true;
+  } finally {
+    procesandoContratar.value = false;
+  }
 };
 
 // Sends to the reservations view with the service data
@@ -258,6 +306,20 @@ const handleReservar = (servicio) => {
   color: white;
   box-shadow: 0 4px 12px rgba(41,146,213,0.3);
 }
+
+.btn-contratar {
+  background: linear-gradient(135deg, #66bb6a, #43a047);
+  color: white;
+  box-shadow: 0 4px 12px rgba(67,160,71,0.3);
+}
+
+.modal-msg {
+  margin-top: 12px;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+.modal-msg.exito { color: #1b7a3d; }
+.modal-msg.error { color: #c62828; }
 
 .no-results {
   text-align: center;

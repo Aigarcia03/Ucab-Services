@@ -1,3 +1,4 @@
+com\ucab\services\controllers\ReservaController.class
 com\ucab\services\repositories\TramiteRepository.class
 com\ucab\services\controllers\ViajeController.class
 com\ucab\services\models\TramiteId.class
@@ -10,6 +11,7 @@ com\ucab\services\controllers\TramiteController.class
 com\ucab\services\controllers\AuthController.class
 com\ucab\services\controllers\AdminController.class
 com\ucab\services\controllers\BolsaTrabajoController.class
+com\ucab\services\controllers\CursosController.class
 com\ucab\services\controllers\ServicioController.class
 com\ucab\services\models\Tramite.class
 com\ucab\services\controllers\ProfileController.class

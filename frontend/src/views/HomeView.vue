@@ -16,12 +16,12 @@ const registerData = ref({
   contrasena: '',
   direccion: '',
   fechaNacimiento: '',
-  telefono: '',
-  categoria: 'frecuente'
+  telefono: ''
 })
 const loginError = ref('')
 const registerError = ref('')
 const registerSuccess = ref('')
+const ciError = ref('')
 
 const handleLogin = async () => {
   loginError.value = ''
@@ -96,7 +96,6 @@ const handleRegister = async () => {
       DireccionHabitacion: registerData.value.direccion,
       FechaNacimiento: registerData.value.fechaNacimiento,
       Telefono: registerData.value.telefono,
-      Categoria: registerData.value.categoria,
       contrasena: registerData.value.contrasena
     }
 
@@ -125,6 +124,18 @@ const handleRegister = async () => {
     console.error('Error al registrar:', error)
     registerError.value = 'No se pudo conectar con el servidor. Intenta de nuevo.'
   }
+}
+
+const checkCiDisponible = async () => {
+  const ci = registerData.value.ci
+  if (!ci || !/^\d+$/.test(ci)) { ciError.value = ''; return }
+  try {
+    const res = await fetch(`/api/auth/check-ci/${parseInt(ci, 10)}`)
+    if (res.ok) {
+      const data = await res.json()
+      ciError.value = data.exists ? 'Esta cédula ya está registrada.' : ''
+    }
+  } catch { ciError.value = '' }
 }
 
 const goToMain = () => {
@@ -171,10 +182,12 @@ const goToMain = () => {
                 <input
                   type="text"
                   v-model="registerData.ci"
+                  @blur="checkCiDisponible"
                   inputmode="numeric"
                   pattern="[0-9]*"
                   maxlength="12"
                 />
+                <span v-if="ciError" class="field-error">{{ ciError }}</span>
               </div>
               <div class="form-group">
                 <label>Teléfono:</label>
@@ -227,14 +240,6 @@ const goToMain = () => {
                   <label><input type="radio" value="F" v-model="registerData.sexo"> F</label>
                   <label><input type="radio" value="M" v-model="registerData.sexo"> M</label>
                 </div>
-              </div>
-
-              <div class="form-group">
-                <label>Categoría:</label>
-                <select v-model="registerData.categoria">
-                  <option value="frecuente">Frecuente</option>
-                  <option value="preferencial">Preferencial</option>
-                </select>
               </div>
             </div>
 
@@ -456,5 +461,12 @@ const goToMain = () => {
   padding: 10px 30px;
   font-size: 1rem;
   margin-top: 0;
+}
+
+.field-error {
+  color: #c62828;
+  font-size: 0.8rem;
+  font-weight: 600;
+  margin-top: 2px;
 }
 </style>

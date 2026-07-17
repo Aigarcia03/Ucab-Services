@@ -14,6 +14,14 @@
           <span class="tai-label">UID</span>
           <span class="tai-valor">{{ taiInfo.uid ?? '—' }}</span>
         </div>
+        <div class="tai-header">
+          <span class="tai-label">Estado</span>
+          <span class="tai-estado" :class="taiInfo.estado || 'activo'">{{ taiInfo.estado || 'activo' }}</span>
+        </div>
+      </div>
+
+      <div v-if="taiInfo.estado === 'bloqueado'" class="bloqueado-banner">
+        Esta tarjeta TAI está bloqueada. No se pueden realizar abonos. Contacta al administrador.
       </div>
 
       <div class="abono-section">
@@ -22,11 +30,12 @@
           <input
             type="number"
             v-model.number="montoAbono"
-            placeholder="Monto"
+            placeholder="Monto (mín 1 USD)"
             min="1"
             class="abono-input"
+            :disabled="taiInfo.estado === 'bloqueado'"
           />
-          <button @click="hacerAbono" :disabled="!montoAbono || montoAbono <= 0 || abonando" class="btn-abono">
+          <button @click="hacerAbono" :disabled="!montoAbono || montoAbono < 1 || abonando || taiInfo.estado === 'bloqueado'" class="btn-abono">
             {{ abonando ? 'Procesando...' : 'Abonar' }}
           </button>
         </div>
@@ -331,5 +340,32 @@ onMounted(fetchTAI);
 
 .mov-row .pendiente {
   color: #e65100;
+}
+
+.tai-estado {
+  font-size: 1.1rem;
+  font-weight: 800;
+  padding: 4px 16px;
+  border-radius: 999px;
+  text-transform: uppercase;
+}
+.tai-estado.activo {
+  background: #dcedc8;
+  color: #33691e;
+}
+.tai-estado.bloqueado {
+  background: #fce4ec;
+  color: #c62828;
+}
+
+.bloqueado-banner {
+  background: #fef2f2;
+  color: #991b1b;
+  padding: 14px 20px;
+  border-radius: 14px;
+  margin-bottom: 20px;
+  font-weight: 600;
+  font-size: 0.95rem;
+  border: 1px solid #fecaca;
 }
 </style>

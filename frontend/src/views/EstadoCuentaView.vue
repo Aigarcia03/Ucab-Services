@@ -32,6 +32,9 @@
         <div class="item-right">
           <span class="item-date">{{ item.fecha }}</span>
           <strong class="item-amount">Pendiente  ${{ item.precioBase.toFixed(2) }}</strong>
+          <button v-if="item.estado === 'activo'" class="btn-pagar-item" @click="pagarItem(item)">
+            Pagar
+          </button>
         </div>
       </div>
 
@@ -46,11 +49,27 @@
 import { onMounted } from 'vue';
 import { estadoCuentaStore } from '../services/estadoCuentaStore';
 
+const emit = defineEmits(['pagarItem']);
+
 const props = defineProps({ userCi: { type: Number, default: null } });
 
 onMounted(() => {
   estadoCuentaStore.cargarDesdeDB(props.userCi);
 });
+
+const pagarItem = (item) => {
+  emit('pagarItem', {
+    descripcion: item.titulo,
+    monto: item.precioBase,
+    fecha: item.fecha,
+    detalles: { categoria: item.nombreCategoria },
+    ci: item.ci,
+    idPrestadora: item.idPrestadora,
+    nombreCategoria: item.nombreCategoria,
+    descripcionTramite: item.descripcionTramite,
+    fechaCreacion: item.fechaCreacion
+  });
+};
 </script>
 
 <style scoped>
@@ -177,5 +196,23 @@ onMounted(() => {
   background-color: #f4f1e6;
   border-radius: 12px;
   font-size: 15px;
+}
+
+.btn-pagar-item {
+  margin-top: 6px;
+  background: linear-gradient(135deg, #39aaf2, #2f9de6);
+  color: white;
+  border: none;
+  border-radius: 20px;
+  padding: 6px 16px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 3px 8px rgba(41,146,213,0.3);
+  transition: transform 0.15s ease;
+}
+
+.btn-pagar-item:hover {
+  transform: translateY(-1px);
 }
 </style>

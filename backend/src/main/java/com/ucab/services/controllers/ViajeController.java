@@ -22,27 +22,19 @@ public class ViajeController {
     public ResponseEntity<List<Map<String, Object>>> getViajes(
             @RequestParam(required = false) String sede) {
         String sql;
+        String baseSql = "SELECT v.FechaHoraInicio, v.FechaHoraFin, v.Destino, " +
+                  "m.Placa, m.TipoVehiculo, m.Capacidad, m.Disponibilidad, " +
+                  "m.Capacidad AS CuposDisponibles, " +
+                  "s.Ubicacion AS SedeOrigen " +
+                  "FROM Viaje v " +
+                  "JOIN MedioTransporte m ON v.Placa = m.Placa AND v.CarnetDeConducir = m.CarnetDeConducir " +
+                  "JOIN Sede s ON m.Ubicacion = s.Ubicacion ";
         if (sede != null && !sede.isEmpty()) {
-            sql = "SELECT v.FechaHoraInicio, v.FechaHoraFin, v.Destino, " +
-                  "m.Placa, m.TipoVehiculo, m.Capacidad, m.Disponibilidad, " +
-                  "s.Ubicacion AS SedeOrigen " +
-                  "FROM Viaje v " +
-                  "JOIN MedioTransporte m ON v.Placa = m.Placa AND v.CarnetDeConducir = m.CarnetDeConducir " +
-                  "JOIN Sede s ON m.Ubicacion = s.Ubicacion " +
-                  "WHERE s.Ubicacion = ? " +
-                  "ORDER BY v.FechaHoraInicio DESC";
-            List<Map<String, Object>> result = jdbcTemplate.queryForList(sql, sede);
-            return ResponseEntity.ok(result);
+            sql = baseSql + "WHERE s.Ubicacion = ? ORDER BY v.FechaHoraInicio DESC";
+            return ResponseEntity.ok(jdbcTemplate.queryForList(sql, sede));
         } else {
-            sql = "SELECT v.FechaHoraInicio, v.FechaHoraFin, v.Destino, " +
-                  "m.Placa, m.TipoVehiculo, m.Capacidad, m.Disponibilidad, " +
-                  "s.Ubicacion AS SedeOrigen " +
-                  "FROM Viaje v " +
-                  "JOIN MedioTransporte m ON v.Placa = m.Placa AND v.CarnetDeConducir = m.CarnetDeConducir " +
-                  "JOIN Sede s ON m.Ubicacion = s.Ubicacion " +
-                  "ORDER BY v.FechaHoraInicio DESC";
-            List<Map<String, Object>> result = jdbcTemplate.queryForList(sql);
-            return ResponseEntity.ok(result);
+            sql = baseSql + "ORDER BY v.FechaHoraInicio DESC";
+            return ResponseEntity.ok(jdbcTemplate.queryForList(sql));
         }
     }
 
