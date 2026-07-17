@@ -15,7 +15,7 @@
         (b.primernombre || ' ' || b.primerapellido) AS beneficiario,
         b.parentesco,
         EXTRACT(YEAR FROM AGE(CURRENT_DATE, b.fechanacimiento))::INT AS edad,
-        COALESCE(NULLIF(b.constanciaestudiosuniversitarios, ''), 'N/A') AS ultima_constancia,
+        CASE WHEN b.constanciaestudiosuniversitarios IS NULL THEN 'N/A' ELSE 'Registrada' END AS ultima_constancia,
         b.fechafin,
         b.constanciaestudiosuniversitarios,
         CASE
@@ -77,6 +77,7 @@ ORDER BY f.trabajador ASC, f.beneficiario ASC;]]></query>
 	<field name="parentesco" class="java.lang.String">
 		<property name="com.jaspersoft.studio.field.name" value="parentesco"/>
 		<property name="com.jaspersoft.studio.field.label" value="parentesco"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="beneficiario"/>
 	</field>
 	<field name="edad" class="java.lang.Integer">
 		<property name="com.jaspersoft.studio.field.name" value="edad"/>
