@@ -1,0 +1,193 @@
+<!-- Created with Jaspersoft Studio version 7.0.6.final using JasperReports Library version 7.0.6-5d2a603fdc6b3db8f842a83383e594f41891534d  -->
+<jasperReport name="ReporteBeneficiarios" language="java" pageWidth="595" pageHeight="842" whenNoDataType="AllSectionsNoDetail" columnWidth="555" leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20" uuid="474f12ad-8bf8-48ab-bb93-926e88eb9fe8">
+	<property name="com.jaspersoft.studio.data.sql.tables" value=""/>
+	<property name="com.jaspersoft.studio.data.defaultdataadapter" value="proyecto_ucab"/>
+	<parameter name="TipoTrabajador" class="java.lang.String">
+		<defaultValueExpression><![CDATA["Todos"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="Parentesco" class="java.lang.String">
+		<defaultValueExpression><![CDATA["Todos"]]></defaultValueExpression>
+	</parameter>
+	<query language="SQL"><![CDATA[WITH Detalle AS (
+    SELECT
+        m.ci,
+        (m.primernombre || ' ' || m.primerapellido) AS trabajador,
+        (b.primernombre || ' ' || b.primerapellido) AS beneficiario,
+        b.parentesco,
+        EXTRACT(YEAR FROM AGE(CURRENT_DATE, b.fechanacimiento))::INT AS edad,
+        COALESCE(NULLIF(b.constanciaestudiosuniversitarios, ''), 'N/A') AS ultima_constancia,
+        b.fechafin,
+        b.constanciaestudiosuniversitarios,
+        CASE
+            WHEN EXISTS (SELECT 1 FROM Profesor pr WHERE pr.ci = m.ci)              THEN 'Profesor'
+            WHEN EXISTS (SELECT 1 FROM PersonalAdministrativo pa WHERE pa.ci = m.ci) THEN 'Administrativo'
+            WHEN EXISTS (SELECT 1 FROM Empleado em WHERE em.ci = m.ci)               THEN 'Empleado'
+            ELSE 'Otro'
+        END AS tipo_trabajador
+    FROM Beneficiario b
+    JOIN Registra r ON b.documentoidentidad = r.documentoidentidad
+    JOIN Miembro  m ON r.ci = m.ci
+),
+Filtrado AS (
+    SELECT
+        d.trabajador,
+        d.beneficiario,
+        d.parentesco,
+        d.edad,
+        d.ultima_constancia,
+        d.fechafin,
+        CASE
+            WHEN d.fechafin IS NOT NULL AND d.fechafin < CURRENT_DATE THEN 'Suspendido'
+            WHEN d.parentesco IN ('Hijo','Hija') AND d.edad >= 18 AND d.constanciaestudiosuniversitarios IS NULL THEN 'Req. Constancia'
+            WHEN d.fechafin IS NOT NULL AND d.fechafin <= CURRENT_DATE + 30 THEN 'Prox. Caducar'
+            ELSE 'Activo'
+        END AS estatus
+    FROM Detalle d
+    WHERE ($P{TipoTrabajador} = 'Todos' OR d.tipo_trabajador = $P{TipoTrabajador})
+      AND ($P{Parentesco}    = 'Todos' OR d.parentesco      = $P{Parentesco})
+),
+Totales AS (
+    SELECT
+        COUNT(*) AS total_registrados,
+        COUNT(*) FILTER (WHERE fechafin IS NOT NULL AND fechafin >= CURRENT_DATE AND fechafin <= CURRENT_DATE + 30) AS prox_caducar,
+        COUNT(*) FILTER (WHERE fechafin IS NOT NULL AND fechafin <  CURRENT_DATE) AS suspendidos
+    FROM Filtrado
+)
+SELECT
+    f.trabajador,
+    f.beneficiario,
+    f.parentesco,
+    f.edad,
+    f.ultima_constancia,
+    f.estatus,
+    t.total_registrados,
+    t.prox_caducar,
+    t.suspendidos
+FROM Filtrado f
+CROSS JOIN Totales t
+ORDER BY f.trabajador ASC, f.beneficiario ASC;]]></query>
+	<field name="trabajador" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="trabajador"/>
+		<property name="com.jaspersoft.studio.field.label" value="trabajador"/>
+	</field>
+	<field name="beneficiario" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="beneficiario"/>
+		<property name="com.jaspersoft.studio.field.label" value="beneficiario"/>
+	</field>
+	<field name="parentesco" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="parentesco"/>
+		<property name="com.jaspersoft.studio.field.label" value="parentesco"/>
+	</field>
+	<field name="edad" class="java.lang.Integer">
+		<property name="com.jaspersoft.studio.field.name" value="edad"/>
+		<property name="com.jaspersoft.studio.field.label" value="edad"/>
+	</field>
+	<field name="ultima_constancia" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="ultima_constancia"/>
+		<property name="com.jaspersoft.studio.field.label" value="ultima_constancia"/>
+	</field>
+	<field name="estatus" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="estatus"/>
+		<property name="com.jaspersoft.studio.field.label" value="estatus"/>
+	</field>
+	<field name="total_registrados" class="java.lang.Long">
+		<property name="com.jaspersoft.studio.field.name" value="total_registrados"/>
+		<property name="com.jaspersoft.studio.field.label" value="total_registrados"/>
+	</field>
+	<field name="prox_caducar" class="java.lang.Long">
+		<property name="com.jaspersoft.studio.field.name" value="prox_caducar"/>
+		<property name="com.jaspersoft.studio.field.label" value="prox_caducar"/>
+	</field>
+	<field name="suspendidos" class="java.lang.Long">
+		<property name="com.jaspersoft.studio.field.name" value="suspendidos"/>
+		<property name="com.jaspersoft.studio.field.label" value="suspendidos"/>
+	</field>
+	<background splitType="Stretch"/>
+	<title height="90" splitType="Stretch">
+		<element kind="rectangle" uuid="f843084d-d654-419a-bbf7-0a10d19e1a28" x="0" y="0" width="555" height="45" backcolor="#027935"/>
+		<element kind="staticText" uuid="33cac688-ea7d-4f87-928e-ae2965cef3f5" x="15" y="7" width="300" height="30" forecolor="#FFFFFF" fontSize="22.0" bold="true">
+			<text><![CDATA[UCAB Services]]></text>
+		</element>
+		<element kind="rectangle" uuid="bbea73fd-0c6e-4f50-9aa1-6fd9bddc2033" x="0" y="45" width="555" height="35" backcolor="#FFD033"/>
+		<element kind="staticText" uuid="c879b49b-c21c-4642-9b23-96029b2eed47" x="15" y="52" width="130" height="20" fontSize="12.0" bold="true">
+			<text><![CDATA[Tipo de trabajador:]]></text>
+		</element>
+		<element kind="textField" uuid="72763c95-e3ae-4d96-9808-a11cbb69d7df" x="145" y="52" width="95" height="20" fontSize="12.0">
+			<expression><![CDATA[$P{TipoTrabajador}]]></expression>
+		</element>
+		<element kind="staticText" uuid="d67860f4-4884-42b6-a675-1e2ddb1e63bf" x="290" y="52" width="90" height="20" fontSize="12.0" bold="true">
+			<text><![CDATA[Parentesco:]]></text>
+		</element>
+		<element kind="textField" uuid="e4bcaaee-9ca2-496e-b706-f85ebafa0d14" x="380" y="52" width="160" height="20" fontSize="12.0">
+			<expression><![CDATA[$P{Parentesco}]]></expression>
+		</element>
+	</title>
+	<pageHeader height="55" splitType="Stretch">
+		<element kind="rectangle" uuid="c1046529-6f96-4417-8733-476f0867ff6a" x="0" y="8" width="555" height="40" backcolor="#0C578E"/>
+		<element kind="staticText" uuid="41e8907b-c6e0-46dd-acb2-9da7c2081919" x="8" y="18" width="148" height="20" forecolor="#FFFFFF" fontSize="10.0" bold="true" vTextAlign="Middle">
+			<text><![CDATA[Beneficiarios Registrados:]]></text>
+		</element>
+		<element kind="textField" uuid="a43e841a-8d9d-4cf5-ab7a-cca29e1d7aea" x="156" y="18" width="32" height="20" forecolor="#FFFFFF" fontSize="10.0" vTextAlign="Middle">
+			<expression><![CDATA[$F{total_registrados} == null ? "0" : String.valueOf($F{total_registrados})]]></expression>
+		</element>
+		<element kind="staticText" uuid="d2e8528d-a7be-4737-9034-9c8fdd011bbd" x="195" y="18" width="88" height="20" forecolor="#FFFFFF" fontSize="10.0" bold="true" vTextAlign="Middle">
+			<text><![CDATA[Prox. a Caducar:]]></text>
+		</element>
+		<element kind="textField" uuid="0addde11-be85-4cc0-8515-0badaee6bdb9" x="283" y="18" width="28" height="20" forecolor="#FFFFFF" fontSize="10.0" vTextAlign="Middle">
+			<expression><![CDATA[$F{prox_caducar} == null ? "0" : String.valueOf($F{prox_caducar})]]></expression>
+		</element>
+		<element kind="staticText" uuid="e4306a40-c231-4f1d-aacf-f0afa657a646" x="320" y="18" width="138" height="20" forecolor="#FFFFFF" fontSize="10.0" bold="true" vTextAlign="Middle">
+			<text><![CDATA[Beneficios Suspendidos:]]></text>
+		</element>
+		<element kind="textField" uuid="154efa29-1d9e-4943-bba7-6d5820db49b4" x="458" y="18" width="40" height="20" forecolor="#FFFFFF" fontSize="10.0" vTextAlign="Middle">
+			<expression><![CDATA[$F{suspendidos} == null ? "0" : String.valueOf($F{suspendidos})]]></expression>
+		</element>
+	</pageHeader>
+	<columnHeader height="30" splitType="Stretch">
+		<element kind="staticText" uuid="a4138ffe-d8ac-4934-9f3f-52bc37c3483c" x="0" y="5" width="95" height="20" fontSize="10.0" bold="true" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[TRABAJADOR]]></text>
+		</element>
+		<element kind="staticText" uuid="e62db8a7-f15e-4b62-a0a5-e97a985baec5" x="95" y="5" width="95" height="20" fontSize="10.0" bold="true" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[BENEFICIARIO]]></text>
+		</element>
+		<element kind="staticText" uuid="f8eda9f5-d687-4174-9416-4d84624cdd13" x="190" y="5" width="75" height="20" fontSize="10.0" bold="true" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[PARENTESCO]]></text>
+		</element>
+		<element kind="staticText" uuid="770df7da-3727-421e-988a-1735cdeb9288" x="265" y="5" width="70" height="20" fontSize="10.0" bold="true" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[EDAD ACTUAL]]></text>
+		</element>
+		<element kind="staticText" uuid="25615b78-456a-420f-ab26-0370dfd7b69f" x="335" y="5" width="105" height="20" fontSize="10.0" bold="true" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[ÚLTIMA CONSTAN.]]></text>
+		</element>
+		<element kind="staticText" uuid="0e117c25-0e49-4404-a23f-dd4fcc56dea9" x="440" y="5" width="115" height="20" fontSize="10.0" bold="true" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[ESTATUS]]></text>
+		</element>
+	</columnHeader>
+	<detail>
+		<band height="25" splitType="Stretch">
+			<element kind="textField" uuid="0e877fbb-c54e-41e4-9408-b7f868b750ee" x="0" y="2" width="95" height="20" fontSize="9.0" hTextAlign="Center" vTextAlign="Middle">
+				<expression><![CDATA[$F{trabajador}]]></expression>
+			</element>
+			<element kind="textField" uuid="1195e59c-c58b-4577-8e68-25cbcb2b1b97" x="95" y="2" width="95" height="20" fontSize="9.0" hTextAlign="Center" vTextAlign="Middle">
+				<expression><![CDATA[$F{beneficiario}]]></expression>
+			</element>
+			<element kind="textField" uuid="428378f5-980d-46c8-ba4e-1462f478ec06" x="190" y="2" width="75" height="20" fontSize="9.0" hTextAlign="Center" vTextAlign="Middle">
+				<expression><![CDATA[$F{parentesco}]]></expression>
+			</element>
+			<element kind="textField" uuid="72ab0fb9-09d3-47f2-88db-c6a83aaf670b" x="265" y="2" width="70" height="20" fontSize="9.0" hTextAlign="Center" vTextAlign="Middle">
+				<expression><![CDATA[$F{edad} + " años"]]></expression>
+			</element>
+			<element kind="textField" uuid="0f9a6e2d-ec97-4abb-a22b-fd174f025008" x="335" y="2" width="105" height="20" fontSize="9.0" hTextAlign="Center" vTextAlign="Middle">
+				<expression><![CDATA[$F{ultima_constancia}]]></expression>
+			</element>
+			<element kind="textField" uuid="655cce7d-61b0-4afc-acd8-acbb89e8f32c" x="440" y="2" width="115" height="20" fontSize="9.0" hTextAlign="Center" vTextAlign="Middle">
+				<expression><![CDATA[$F{estatus}]]></expression>
+			</element>
+		</band>
+	</detail>
+	<pageFooter height="30" splitType="Stretch">
+		<element kind="textField" uuid="aabaa8ef-bc8f-4c49-9a20-3d83beb3d325" x="435" y="5" width="80" height="20" fontSize="10.0" hTextAlign="Right">
+			<expression><![CDATA["Página " + $V{PAGE_NUMBER}]]></expression>
+		</element>
+	</pageFooter>
+</jasperReport>

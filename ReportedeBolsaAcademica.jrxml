@@ -1,0 +1,116 @@
+<!-- Created with Jaspersoft Studio version 7.0.6.final using JasperReports Library version 7.0.6-5d2a603fdc6b3db8f842a83383e594f41891534d  -->
+<jasperReport name="ReportedeBolsaAcademica" language="java" pageWidth="595" pageHeight="842" whenNoDataType="AllSectionsNoDetail" columnWidth="555" leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20" uuid="b1ddef74-2796-4a6b-b996-66c2c0b83e7e">
+	<property name="com.jaspersoft.studio.data.sql.tables" value=""/>
+	<property name="com.jaspersoft.studio.data.defaultdataadapter" value="proyecto_ucab"/>
+	<parameter name="AliadoExterno" class="java.lang.String">
+		<defaultValueExpression><![CDATA["Todos"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="CarreraSolicitada" class="java.lang.String">
+		<defaultValueExpression><![CDATA["Todas"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="FechaInicioBolsaAcademica" class="java.sql.Timestamp"/>
+	<parameter name="FechaFinBolsaAcademica" class="java.sql.Timestamp"/>
+	<query language="SQL"><![CDATA[SELECT 
+    oe.RazonSocial AS aliado,
+    ol.Cargo AS vacante,
+    COUNT(sp.CI) AS postulados,
+    COUNT(CASE WHEN LOWER(sp.Resultado) IN ('en revisión', 'aceptado') THEN 1 END) AS avanzaron,
+    COUNT(CASE WHEN LOWER(sp.Resultado) = 'aceptado' THEN 1 END) AS contratados,
+    CASE 
+        WHEN COUNT(sp.CI) > 0 THEN ROUND((COUNT(CASE WHEN LOWER(sp.Resultado) = 'aceptado' THEN 1 END)::NUMERIC / COUNT(sp.CI)::NUMERIC) * 100, 1)
+        ELSE 0.0 
+    END AS efectividad
+FROM OrganizacionExterna oe
+JOIN OportunidadLaboral ol ON oe.RIF = ol.RIF
+LEFT JOIN SePostula sp ON ol.RIF = sp.RIF AND ol.FechaHoraOferta = sp.FechaHoraOferta
+LEFT JOIN Egresado eg ON sp.CI = eg.CI
+WHERE ol.FechaHoraOferta BETWEEN $P{FechaInicioBolsaAcademica} AND $P{FechaFinBolsaAcademica}
+  AND ($P{AliadoExterno} = 'Todos' OR oe.RazonSocial = $P{AliadoExterno})
+  AND ($P{CarreraSolicitada} = 'Todas' OR eg.Titulo = $P{CarreraSolicitada})
+GROUP BY oe.RazonSocial, ol.Cargo, ol.FechaHoraOferta
+ORDER BY oe.RazonSocial ASC, ol.Cargo ASC;]]></query>
+	<field name="aliado" class="java.lang.String"/>
+	<field name="vacante" class="java.lang.String"/>
+	<field name="postulados" class="java.lang.Long"/>
+	<field name="avanzaron" class="java.lang.Long"/>
+	<field name="contratados" class="java.lang.Long"/>
+	<field name="efectividad" class="java.lang.String"/>
+	<background splitType="Stretch"/>
+	<title height="90" splitType="Stretch">
+		<element kind="rectangle" uuid="9deedd25-a933-4629-93d6-21afc7821eba" x="0" y="0" width="555" height="45" backcolor="#027935"/>
+		<element kind="staticText" uuid="ba0bba14-53ab-48e0-b149-6418c6d67184" x="15" y="7" width="230" height="30" forecolor="#FFFFFF" fontSize="22.0" bold="true">
+			<text><![CDATA[UCAB Services]]></text>
+		</element>
+		<element kind="rectangle" uuid="cf2f8bef-2f30-4e32-b84f-b0b0944a7348" x="0" y="45" width="555" height="35" backcolor="#FFD033"/>
+		<element kind="staticText" uuid="f66a8e3a-a965-420b-9bfd-5b4a1a76538a" x="15" y="52" width="90" height="20" fontSize="12.0" bold="true">
+			<text><![CDATA[Fecha Inicio:]]></text>
+		</element>
+		<element kind="textField" uuid="1e2730d2-03de-4971-8842-0abdf46daa62" x="105" y="52" width="150" height="20" fontSize="12.0">
+			<expression><![CDATA[new SimpleDateFormat("dd/MM/yyyy").format($P{FechaInicioBolsaAcademica})]]></expression>
+		</element>
+		<element kind="staticText" uuid="e67fb32c-425b-4a1a-8783-7c1848db15bf" x="290" y="52" width="80" height="20" fontSize="12.0" bold="true">
+			<text><![CDATA[Fecha Fin:]]></text>
+		</element>
+		<element kind="textField" uuid="2a0cc7f9-1c0f-4521-9f03-b240ce6e89db" x="370" y="52" width="150" height="20" fontSize="12.0">
+			<expression><![CDATA[new SimpleDateFormat("dd/MM/yyyy").format($P{FechaFinBolsaAcademica})]]></expression>
+		</element>
+	</title>
+	<pageHeader height="55" splitType="Stretch">
+		<element kind="rectangle" uuid="06e4a083-6243-46a0-b9c0-264ccc16fb3a" x="0" y="8" width="555" height="40" backcolor="#0C578E"/>
+		<element kind="staticText" uuid="9e29a8c9-0a78-4c3f-abe8-dffc4309740a" x="15" y="18" width="105" height="20" forecolor="#FFFFFF" fontSize="12.0" bold="true">
+			<text><![CDATA[Aliado Externo:]]></text>
+		</element>
+		<element kind="textField" uuid="0f00b8a9-f11b-40e3-89bc-fc62f8f4c706" x="120" y="18" width="140" height="20" forecolor="#FFFFFF" fontSize="12.0">
+			<expression><![CDATA[$P{AliadoExterno}]]></expression>
+		</element>
+		<element kind="staticText" uuid="3e452cc7-0f03-4763-b2c0-c303f2629cd4" x="280" y="18" width="130" height="20" forecolor="#FFFFFF" fontSize="12.0" bold="true">
+			<text><![CDATA[Carrera Solicitada:]]></text>
+		</element>
+		<element kind="textField" uuid="253f544a-2e2b-48e2-958c-6917e9a03242" x="410" y="18" width="135" height="20" forecolor="#FFFFFF" fontSize="12.0">
+			<expression><![CDATA[$P{CarreraSolicitada}]]></expression>
+		</element>
+	</pageHeader>
+	<columnHeader height="30" splitType="Stretch">
+		<element kind="staticText" uuid="1bb12f67-8988-4df5-b9a9-1c9efb32eb04" x="0" y="5" width="100" height="20" fontSize="11.0" bold="true" hTextAlign="Center">
+			<text><![CDATA[ALIADO]]></text>
+		</element>
+		<element kind="staticText" uuid="c6aa7891-e7ee-4563-bc45-e3d98d26e4ce" x="100" y="5" width="110" height="20" fontSize="11.0" bold="true" hTextAlign="Center">
+			<text><![CDATA[VACANTE]]></text>
+		</element>
+		<element kind="staticText" uuid="74555197-015a-400c-ab1d-14e6bff391d7" x="210" y="5" width="85" height="20" fontSize="11.0" bold="true" hTextAlign="Center">
+			<text><![CDATA[POSTULADOS]]></text>
+		</element>
+		<element kind="staticText" uuid="a5c4a057-5930-413d-94e1-0744c10706ca" x="295" y="5" width="85" height="20" fontSize="11.0" bold="true" hTextAlign="Center">
+			<text><![CDATA[AVANZARON]]></text>
+		</element>
+		<element kind="staticText" uuid="edbbbabd-d2a2-479e-83b7-0123b8c46889" x="380" y="5" width="90" height="20" fontSize="11.0" bold="true" hTextAlign="Center">
+			<text><![CDATA[CONTRATADOS]]></text>
+		</element>
+		<element kind="staticText" uuid="4abe28ee-51db-4fb8-92ca-1f0c1444c437" x="470" y="5" width="85" height="20" fontSize="11.0" bold="true" hTextAlign="Center">
+			<text><![CDATA[EFECTIVIDAD]]></text>
+		</element>
+	</columnHeader>
+	<detail>
+		<band height="25" splitType="Stretch">
+			<element kind="textField" uuid="2ff2bb30-e6dd-4ba4-8dcf-25917db6106b" x="0" y="2" width="100" height="20" fontSize="10.0" hTextAlign="Center" vTextAlign="Middle">
+				<expression><![CDATA[$F{aliado}]]></expression>
+			</element>
+			<element kind="textField" uuid="025f0c84-4d77-4fe2-8893-0a6a661aacb7" x="100" y="2" width="110" height="20" fontSize="10.0" hTextAlign="Center" vTextAlign="Middle">
+				<expression><![CDATA[$F{vacante}]]></expression>
+			</element>
+			<element kind="textField" uuid="0c38bfe3-9094-43e8-86cd-b796743ea64c" x="210" y="2" width="85" height="20" fontSize="10.0" hTextAlign="Center" vTextAlign="Middle">
+				<expression><![CDATA[$F{postulados}]]></expression>
+			</element>
+			<element kind="textField" uuid="a0471a26-3d0a-4f65-a034-d0151918872d" x="295" y="2" width="85" height="20" fontSize="10.0" hTextAlign="Center" vTextAlign="Middle">
+				<expression><![CDATA[$F{avanzaron}]]></expression>
+			</element>
+			<element kind="textField" uuid="1d200e51-1511-4ed0-a818-79a5a894f955" x="380" y="2" width="90" height="20" fontSize="10.0" hTextAlign="Center" vTextAlign="Middle">
+				<expression><![CDATA[$F{contratados}]]></expression>
+			</element>
+			<element kind="textField" uuid="8b28597a-b073-4b4f-9b24-5b4f1b86b0e2" x="470" y="2" width="85" height="20" fontSize="10.0" hTextAlign="Center" vTextAlign="Middle">
+				<expression><![CDATA[$F{efectividad} + "%"]]></expression>
+			</element>
+		</band>
+	</detail>
+	<pageFooter height="30" splitType="Stretch"/>
+</jasperReport>

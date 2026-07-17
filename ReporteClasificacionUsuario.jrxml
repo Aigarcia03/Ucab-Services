@@ -1,0 +1,216 @@
+<jasperReport name="ReporteClasificacionUsuario" language="java" pageWidth="595" pageHeight="842" whenNoDataType="AllSectionsNoDetail" columnWidth="555" leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20" uuid="6d9c5791-15b4-4a8a-ae58-49cbacc5a20b">
+	<property name="com.jaspersoft.studio.data.sql.tables" value=""/>
+	<property name="com.jaspersoft.studio.data.defaultdataadapter" value="proyecto_ucab"/>
+	<parameter name="RolUsuario" class="java.lang.String">
+		<defaultValueExpression><![CDATA["Todos"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="Clasificacion" class="java.lang.String">
+		<defaultValueExpression><![CDATA["Todos"]]></defaultValueExpression>
+	</parameter>
+	<parameter name="FechaInicio" class="java.sql.Date">
+		<defaultValueExpression><![CDATA[java.sql.Date.valueOf("2025-09-01")]]></defaultValueExpression>
+	</parameter>
+	<parameter name="FechaFin" class="java.sql.Date">
+		<defaultValueExpression><![CDATA[java.sql.Date.valueOf("2026-01-31")]]></defaultValueExpression>
+	</parameter>
+	<query language="SQL"><![CDATA[WITH ServCount AS (
+    SELECT t.ci, COUNT(*) AS serv_consumido
+    FROM Tramite t
+    WHERE t.fechacreacion BETWEEN $P{FechaInicio} AND $P{FechaFin}
+    GROUP BY t.ci
+),
+PagoAgg AS (
+    SELECT
+        f.ci,
+        ROUND(AVG(EXTRACT(EPOCH FROM (f.fechahorapago - f.fechahoraemision)) / 86400.0)::NUMERIC, 1)::FLOAT AS prom_dias_pago,
+        COALESCE(SUM(f.montoacumulado), 0.0)::FLOAT AS total
+    FROM Factura f
+    WHERE f.ci IS NOT NULL
+      AND f.fechahorapago IS NOT NULL
+      AND f.fechahoraemision::date BETWEEN $P{FechaInicio} AND $P{FechaFin}
+    GROUP BY f.ci
+),
+Usuarios AS (
+    SELECT
+        m.ci,
+        (m.primernombre || ' ' || m.primerapellido) AS nombre,
+        CASE
+            WHEN EXISTS (SELECT 1 FROM Profesor pr WHERE pr.ci = m.ci)               THEN 'Profesor'
+            WHEN EXISTS (SELECT 1 FROM PersonalAdministrativo pa WHERE pa.ci = m.ci) THEN 'Administrativo'
+            WHEN EXISTS (SELECT 1 FROM Empleado em WHERE em.ci = m.ci)               THEN 'Empleado'
+            WHEN EXISTS (SELECT 1 FROM Estudiante es WHERE es.ci = m.ci)             THEN 'Estudiante'
+            ELSE 'Miembro'
+        END AS rol,
+        sc.serv_consumido,
+        COALESCE(pa.prom_dias_pago, 0.0)::FLOAT AS prom_dias_pago,
+        COALESCE(pa.total, 0.0)::FLOAT AS total,
+        CASE
+            WHEN pa.prom_dias_pago IS NULL THEN 'Regular'
+            WHEN pa.prom_dias_pago <= 10   THEN 'Preferencial'
+            ELSE 'Moroso'
+        END AS clasificacion
+    FROM Miembro m
+    JOIN ServCount sc ON m.ci = sc.ci
+    LEFT JOIN PagoAgg pa ON m.ci = pa.ci
+),
+Filtrado AS (
+    SELECT u.*
+    FROM Usuarios u
+    WHERE ($P{RolUsuario}    = 'Todos' OR u.rol           = $P{RolUsuario})
+      AND ($P{Clasificacion} = 'Todos' OR u.clasificacion = $P{Clasificacion})
+),
+Totales AS (
+    SELECT
+        COUNT(*) FILTER (WHERE clasificacion = 'Preferencial') AS usuarios_preferenciales,
+        CASE WHEN COUNT(*) > 0
+             THEN ROUND((COUNT(*) FILTER (WHERE serv_consumido >= 2) * 100.0 / COUNT(*))::NUMERIC, 0)::FLOAT
+             ELSE 0.0 END AS tasa_recurrencia,
+        CASE WHEN SUM(serv_consumido) > 0
+             THEN ROUND((SUM(total) / SUM(serv_consumido))::NUMERIC, 2)::FLOAT
+             ELSE 0.0 END AS ticket_promedio
+    FROM Filtrado
+)
+SELECT
+    f.nombre,
+    f.rol,
+    f.serv_consumido,
+    f.prom_dias_pago,
+    f.total,
+    f.clasificacion,
+    t.usuarios_preferenciales,
+    t.tasa_recurrencia,
+    t.ticket_promedio
+FROM Filtrado f
+CROSS JOIN Totales t
+ORDER BY f.total DESC, f.nombre ASC;]]></query>
+	<field name="nombre" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="nombre"/>
+		<property name="com.jaspersoft.studio.field.label" value="nombre"/>
+	</field>
+	<field name="rol" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="rol"/>
+		<property name="com.jaspersoft.studio.field.label" value="rol"/>
+	</field>
+	<field name="serv_consumido" class="java.lang.Long">
+		<property name="com.jaspersoft.studio.field.name" value="serv_consumido"/>
+		<property name="com.jaspersoft.studio.field.label" value="serv_consumido"/>
+	</field>
+	<field name="prom_dias_pago" class="java.lang.Double">
+		<property name="com.jaspersoft.studio.field.name" value="prom_dias_pago"/>
+		<property name="com.jaspersoft.studio.field.label" value="prom_dias_pago"/>
+	</field>
+	<field name="total" class="java.lang.Double">
+		<property name="com.jaspersoft.studio.field.name" value="total"/>
+		<property name="com.jaspersoft.studio.field.label" value="total"/>
+	</field>
+	<field name="clasificacion" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="clasificacion"/>
+		<property name="com.jaspersoft.studio.field.label" value="clasificacion"/>
+	</field>
+	<field name="usuarios_preferenciales" class="java.lang.Long">
+		<property name="com.jaspersoft.studio.field.name" value="usuarios_preferenciales"/>
+		<property name="com.jaspersoft.studio.field.label" value="usuarios_preferenciales"/>
+	</field>
+	<field name="tasa_recurrencia" class="java.lang.Double">
+		<property name="com.jaspersoft.studio.field.name" value="tasa_recurrencia"/>
+		<property name="com.jaspersoft.studio.field.label" value="tasa_recurrencia"/>
+	</field>
+	<field name="ticket_promedio" class="java.lang.Double">
+		<property name="com.jaspersoft.studio.field.name" value="ticket_promedio"/>
+		<property name="com.jaspersoft.studio.field.label" value="ticket_promedio"/>
+	</field>
+	<background splitType="Stretch"/>
+	<title height="90" splitType="Stretch">
+		<element kind="rectangle" uuid="fdc209b0-a933-4e67-ba34-e0664576cc16" x="0" y="0" width="555" height="45" backcolor="#027935"/>
+		<element kind="staticText" uuid="53ba8de2-4171-4bde-ac6c-bbc33b2ed171" x="15" y="7" width="300" height="30" forecolor="#FFFFFF" fontSize="22.0" bold="true">
+			<text><![CDATA[UCAB Services]]></text>
+		</element>
+		<element kind="rectangle" uuid="32086a71-6617-4b80-ae59-f2a058136e2f" x="0" y="45" width="555" height="35" backcolor="#FFD033"/>
+		<element kind="staticText" uuid="b4adafce-d75e-4dee-8de0-81ce5c17cfc8" x="8" y="52" width="95" height="20" fontSize="11.0" bold="true">
+			<text><![CDATA[Rol de usuario:]]></text>
+		</element>
+		<element kind="textField" uuid="f96c6d63-453e-412c-9196-d1406ee4175d" x="103" y="52" width="68" height="20" fontSize="11.0">
+			<expression><![CDATA[$P{RolUsuario}]]></expression>
+		</element>
+		<element kind="staticText" uuid="b40633ef-9f0a-486b-b42f-76319d16d253" x="180" y="52" width="52" height="20" fontSize="11.0" bold="true">
+			<text><![CDATA[Periodo:]]></text>
+		</element>
+		<element kind="textField" uuid="03f6074f-51f0-4991-ab8a-b8c5c8cbcddb" x="232" y="52" width="110" height="20" fontSize="11.0">
+			<expression><![CDATA[new java.text.SimpleDateFormat("MM/yyyy").format($P{FechaInicio}) + " - " + new java.text.SimpleDateFormat("MM/yyyy").format($P{FechaFin})]]></expression>
+		</element>
+		<element kind="staticText" uuid="b9ab03b7-2bf4-438f-b7d7-2ac7aa23b879" x="350" y="52" width="88" height="20" fontSize="11.0" bold="true">
+			<text><![CDATA[Clasificación:]]></text>
+		</element>
+		<element kind="textField" uuid="ee11f25f-ddec-49ac-823d-df4b48225589" x="438" y="52" width="112" height="20" fontSize="11.0">
+			<expression><![CDATA[$P{Clasificacion}]]></expression>
+		</element>
+	</title>
+	<pageHeader height="55" splitType="Stretch">
+		<element kind="rectangle" uuid="e817f47e-1485-4d5d-95b3-f9d9d8b9fde5" x="0" y="8" width="555" height="40" backcolor="#0C578E"/>
+		<element kind="staticText" uuid="a8e9e6c5-815b-4d59-9694-24fa77e6b183" x="6" y="18" width="133" height="20" forecolor="#FFFFFF" fontSize="9.0" bold="true" vTextAlign="Middle">
+			<text><![CDATA[Usuarios Preferenciales:]]></text>
+		</element>
+		<element kind="textField" uuid="f6fb988f-660e-4bc1-92e1-a9aa99385292" x="139" y="18" width="28" height="20" forecolor="#FFFFFF" fontSize="9.0" vTextAlign="Middle">
+			<expression><![CDATA[$F{usuarios_preferenciales} == null ? "0" : String.valueOf($F{usuarios_preferenciales})]]></expression>
+		</element>
+		<element kind="staticText" uuid="7c270d51-c20e-46a2-9aef-f2f786570741" x="173" y="18" width="118" height="20" forecolor="#FFFFFF" fontSize="9.0" bold="true" vTextAlign="Middle">
+			<text><![CDATA[Recurrencia Mensual:]]></text>
+		</element>
+		<element kind="textField" uuid="ad48c2b5-8b0c-4c7f-8b7d-d2ab57d6818c" x="291" y="18" width="38" height="20" forecolor="#FFFFFF" fontSize="9.0" vTextAlign="Middle">
+			<expression><![CDATA[$F{tasa_recurrencia} == null ? "0%" : new java.text.DecimalFormat("#,##0").format($F{tasa_recurrencia}) + "%"]]></expression>
+		</element>
+		<element kind="staticText" uuid="913bced8-9a9e-4b74-95bf-ca33a7920f2a" x="338" y="18" width="92" height="20" forecolor="#FFFFFF" fontSize="9.0" bold="true" vTextAlign="Middle">
+			<text><![CDATA[Ticket Promedio:]]></text>
+		</element>
+		<element kind="textField" uuid="15ba3056-ac0a-4da2-a8e8-71ff3b9ceb25" x="430" y="18" width="65" height="20" forecolor="#FFFFFF" fontSize="9.0" vTextAlign="Middle">
+			<expression><![CDATA[$F{ticket_promedio} == null ? "0$" : new java.text.DecimalFormat("#,##0.00").format($F{ticket_promedio}) + "$"]]></expression>
+		</element>
+	</pageHeader>
+	<columnHeader height="30" splitType="Stretch">
+		<element kind="staticText" uuid="20173577-5e1b-4b3d-be01-2f7a22fa22e0" x="0" y="5" width="100" height="20" fontSize="10.0" bold="true" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[NOMBRE]]></text>
+		</element>
+		<element kind="staticText" uuid="7e363903-479f-4aee-b44d-92b18f9c48e9" x="100" y="5" width="85" height="20" fontSize="10.0" bold="true" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[ROL]]></text>
+		</element>
+		<element kind="staticText" uuid="52b1b1eb-638f-4ac9-b4ac-473fd9a7917a" x="185" y="5" width="90" height="20" fontSize="10.0" bold="true" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[SERV. CONSUMIDO]]></text>
+		</element>
+		<element kind="staticText" uuid="a8089138-e133-4aaf-a01c-c94d3dabf80e" x="275" y="5" width="95" height="20" fontSize="10.0" bold="true" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[PROM. DÍAS PAGO]]></text>
+		</element>
+		<element kind="staticText" uuid="0dcf9256-b42b-434d-865f-67acd1525973" x="370" y="5" width="80" height="20" fontSize="10.0" bold="true" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[TOTAL]]></text>
+		</element>
+		<element kind="staticText" uuid="5ac8166b-ead9-4a20-9974-7f4171760d26" x="450" y="5" width="105" height="20" fontSize="10.0" bold="true" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[CLASIFICACIÓN]]></text>
+		</element>
+	</columnHeader>
+	<detail>
+		<band height="25" splitType="Stretch">
+			<element kind="textField" uuid="e94bf2b4-7f01-46d6-a661-4942c890021f" x="0" y="2" width="100" height="20" fontSize="9.0" hTextAlign="Center" vTextAlign="Middle">
+				<expression><![CDATA[$F{nombre}]]></expression>
+			</element>
+			<element kind="textField" uuid="9c654034-d141-483f-b8c7-907acbe3bbe9" x="100" y="2" width="85" height="20" fontSize="9.0" hTextAlign="Center" vTextAlign="Middle">
+				<expression><![CDATA[$F{rol}]]></expression>
+			</element>
+			<element kind="textField" uuid="b64a05e1-c5fd-447b-92ac-64acb60e4251" x="185" y="2" width="90" height="20" fontSize="9.0" hTextAlign="Center" vTextAlign="Middle">
+				<expression><![CDATA[String.valueOf($F{serv_consumido})]]></expression>
+			</element>
+			<element kind="textField" uuid="aa3be24f-ca4a-468d-ab28-b862d8d083f8" x="275" y="2" width="95" height="20" fontSize="9.0" hTextAlign="Center" vTextAlign="Middle">
+				<expression><![CDATA[new java.text.DecimalFormat("#,##0.0").format($F{prom_dias_pago}) + " días"]]></expression>
+			</element>
+			<element kind="textField" uuid="c1d2d4c9-578a-45c7-9c8a-25cca20193a0" x="370" y="2" width="80" height="20" fontSize="9.0" hTextAlign="Center" vTextAlign="Middle">
+				<expression><![CDATA["$" + new java.text.DecimalFormat("#,##0.00").format($F{total})]]></expression>
+			</element>
+			<element kind="textField" uuid="9cefae7a-e74a-4455-bd1e-647c6cf1ea43" x="450" y="2" width="105" height="20" fontSize="9.0" hTextAlign="Center" vTextAlign="Middle">
+				<expression><![CDATA[$F{clasificacion}]]></expression>
+			</element>
+		</band>
+	</detail>
+	<pageFooter height="30" splitType="Stretch">
+		<element kind="textField" uuid="76e13a0c-cd41-47d5-b5a2-f2add71a7bc2" x="435" y="5" width="80" height="20" fontSize="10.0" hTextAlign="Right">
+			<expression><![CDATA["Página " + $V{PAGE_NUMBER}]]></expression>
+		</element>
+	</pageFooter>
+</jasperReport>
